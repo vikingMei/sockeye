@@ -161,7 +161,7 @@ def test_seq_copy(name, train_params, translate_params, perplexity_thresh, bleu_
      " --transformer-feed-forward-num-hidden 64"
      " --checkpoint-frequency 1000 --optimizer adam --initial-learning-rate 0.001",
      "--beam-size 1",
-     1.02,
+     1.035,
      0.97),
     ("Sort:cnn",
      "--encoder cnn --decoder cnn "
@@ -170,7 +170,7 @@ def test_seq_copy(name, train_params, translate_params, perplexity_thresh, bleu_
      " --checkpoint-frequency 1000 --optimizer adam --initial-learning-rate 0.001",
      "--beam-size 1",
      1.07,
-     0.96)
+     0.93)
 ])
 def test_seq_sort(name, train_params, translate_params, perplexity_thresh, bleu_thresh):
     """Task: sort short sequences of digits"""

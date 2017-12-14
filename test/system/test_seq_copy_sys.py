@@ -124,7 +124,7 @@ def test_seq_copy(name, train_params, translate_params, perplexity_thresh, bleu_
      " --rnn-attention-num-hidden 32 --batch-size 16 --loss cross-entropy --optimized-metric perplexity"
      " --max-updates 7000 --checkpoint-frequency 1000 --optimizer adam --initial-learning-rate 0.001",
      "--beam-size 5",
-     1.04,
+     1.01,
      0.98),
     ("Sort:word-based-batching",
      "--encoder rnn --num-layers 1 --rnn-cell-type lstm --rnn-num-hidden 64 --num-embed 32 --rnn-attention-type mlp"
@@ -142,7 +142,7 @@ def test_seq_copy(name, train_params, translate_params, perplexity_thresh, bleu_
      " --transformer-feed-forward-num-hidden 64"
      " --checkpoint-frequency 1000 --optimizer adam --initial-learning-rate 0.001",
      "--beam-size 5",
-     1.02,
+     1.01,
      0.98),
     ("Sort:lstm:transformer",
      "--encoder rnn --num-layers 1:2 --rnn-cell-type lstm --rnn-num-hidden 64 --num-embed 32"
@@ -152,7 +152,7 @@ def test_seq_copy(name, train_params, translate_params, perplexity_thresh, bleu_
      " --transformer-feed-forward-num-hidden 64"
      " --checkpoint-frequency 1000 --optimizer adam --initial-learning-rate 0.001",
      "--beam-size 5",
-     1.02,
+     1.01,
      0.98),
     ("Sort:transformer",
      "--encoder transformer --decoder transformer"
@@ -161,16 +161,16 @@ def test_seq_copy(name, train_params, translate_params, perplexity_thresh, bleu_
      " --transformer-feed-forward-num-hidden 64"
      " --checkpoint-frequency 1000 --optimizer adam --initial-learning-rate 0.001",
      "--beam-size 1",
-     1.035,
-     0.97),
+     1.01,
+     0.98),
     ("Sort:cnn",
      "--encoder cnn --decoder cnn "
      " --batch-size 16 --num-layers 3 --max-updates 7000"
      " --cnn-num-hidden 32 --cnn-positional-embedding-type fixed"
      " --checkpoint-frequency 1000 --optimizer adam --initial-learning-rate 0.001",
      "--beam-size 1",
-     1.07,
-     0.93)
+     1.02,
+     0.96)
 ])
 def test_seq_sort(name, train_params, translate_params, perplexity_thresh, bleu_thresh):
     """Task: sort short sequences of digits"""

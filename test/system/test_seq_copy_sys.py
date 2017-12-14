@@ -133,7 +133,7 @@ def test_seq_copy(name, train_params, translate_params, perplexity_thresh, bleu_
      " --initial-learning-rate 0.001 --rnn-dropout-states 0.0:0.1 --embed-dropout 0.1:0.0",
      "--beam-size 5",
      1.01,
-     0.99),
+     0.98),
     ("Sort:transformer:lstm",
      "--encoder transformer --num-layers 1 --rnn-cell-type lstm --rnn-num-hidden 64 --num-embed 32"
      " --rnn-attention-type mhdot --rnn-attention-num-hidden 32 --batch-size 16 --rnn-attention-mhdot-heads 2"
@@ -143,7 +143,7 @@ def test_seq_copy(name, train_params, translate_params, perplexity_thresh, bleu_
      " --checkpoint-frequency 1000 --optimizer adam --initial-learning-rate 0.001",
      "--beam-size 5",
      1.02,
-     0.99),
+     0.98),
     ("Sort:lstm:transformer",
      "--encoder rnn --num-layers 1:2 --rnn-cell-type lstm --rnn-num-hidden 64 --num-embed 32"
      " --decoder transformer --batch-size 16 --transformer-model-size 32"
@@ -153,7 +153,7 @@ def test_seq_copy(name, train_params, translate_params, perplexity_thresh, bleu_
      " --checkpoint-frequency 1000 --optimizer adam --initial-learning-rate 0.001",
      "--beam-size 5",
      1.02,
-     0.99),
+     0.98),
     ("Sort:transformer",
      "--encoder transformer --decoder transformer"
      " --batch-size 16 --max-updates 5000"
@@ -162,7 +162,7 @@ def test_seq_copy(name, train_params, translate_params, perplexity_thresh, bleu_
      " --checkpoint-frequency 1000 --optimizer adam --initial-learning-rate 0.001",
      "--beam-size 1",
      1.02,
-     0.99),
+     0.98),
     ("Sort:cnn",
      "--encoder cnn --decoder cnn "
      " --batch-size 16 --num-layers 3 --max-updates 5000"

@@ -162,7 +162,7 @@ def test_seq_copy(name, train_params, translate_params, perplexity_thresh, bleu_
      " --checkpoint-frequency 1000 --optimizer adam --initial-learning-rate 0.001",
      "--beam-size 1",
      1.02,
-     0.98),
+     0.97),
     ("Sort:cnn",
      "--encoder cnn --decoder cnn "
      " --batch-size 16 --num-layers 3 --max-updates 5000"

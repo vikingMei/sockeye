@@ -731,7 +731,7 @@ class Translator:
         translated_chunks = []
 
         # split into chunks
-        input_chunks = [] # type: List[InputChunk]
+        input_chunks = []  # type: List[InputChunk]
         for input_idx, trans_input in enumerate(trans_inputs):
             if len(trans_input.tokens) == 0:
                 empty_translation = Translation(target_ids=[],
@@ -1030,7 +1030,7 @@ class Translator:
                 sliced_scores = scores if t == 1 and self.batch_size == 1 else scores[rows]
                 # TODO we could save some tiny amount of time here by not running smallest_k for a finished sent
                 (best_hyp_indices[rows], best_word_indices[rows]), \
-                    scores_accumulated[rows, 0] = utils.smallest_k(sliced_scores, self.beam_size, t == 1)
+                scores_accumulated[rows, 0] = utils.smallest_k(sliced_scores, self.beam_size, t == 1)
                 # offsetting since the returned smallest_k() indices were slice-relative
                 best_hyp_indices[rows] += rows.start
 

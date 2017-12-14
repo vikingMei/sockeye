@@ -162,7 +162,7 @@ def tmp_digits_dataset(prefix: str,
 
 
 _TRAIN_PARAMS_COMMON = "--use-cpu --max-seq-len {max_len} --source {train_source} --target {train_target}" \
-                       " --validation-source {dev_source} --validation-target {dev_target} --output {model} {quiet} --seed 17"
+                       " --validation-source {dev_source} --validation-target {dev_target} --output {model} {quiet} --seed 18"
 
 _TRANSLATE_PARAMS_COMMON = "--use-cpu --models {model} --input {input} --output {output} {quiet}"
 

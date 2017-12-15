@@ -3,4 +3,5 @@ pytest-cov
 check-manifest
 mypy
 pylint
+matplotlib
 twine

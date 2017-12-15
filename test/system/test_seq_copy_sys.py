@@ -169,7 +169,7 @@ def test_seq_copy(name, train_params, translate_params, perplexity_thresh, bleu_
      " --cnn-num-hidden 32 --cnn-positional-embedding-type fixed"
      " --checkpoint-frequency 1000 --optimizer adam --initial-learning-rate 0.001",
      "--beam-size 1",
-     1.02,
+     1.03,
      0.96)
 ])
 def test_seq_sort(name, train_params, translate_params, perplexity_thresh, bleu_thresh):

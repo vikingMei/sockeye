@@ -42,6 +42,7 @@ from . import model
 from . import rnn
 from . import convolution
 from . import training
+from . import dual
 from . import transformer
 from . import utils
 from . import vocab
@@ -572,11 +573,20 @@ def create_training_model(model_config: model.ModelConfig,
     :param training_state_dir: Directory where the training state is stored.
     :return: The training model.
     """
-    training_model = training.TrainingModel(config=model_config,
-                                            context=context,
-                                            train_iter=train_iter,
-                                            bucketing=not args.no_bucketing,
-                                            lr_scheduler=lr_scheduler_instance)
+    flag = 0
+    if 1==flag:
+        training_model = training.TrainingModel(config=model_config,
+                context=context,
+                train_iter=train_iter,
+                bucketing=not args.no_bucketing,
+                lr_scheduler=lr_scheduler_instance)
+    else:
+        training_model = dual.DualModel(config=model_config,
+                context=context,
+                train_iter=train_iter,
+                bucketing=not args.no_bucketing,
+                lr_scheduler=lr_scheduler_instance)
+
 
     # We may consider loading the params in TrainingModule, for consistency
     # with the training state saving
@@ -632,9 +642,18 @@ def define_optimizer(args, lr_scheduler_instance) -> Tuple[str, Dict, str, str, 
     return optimizer, optimizer_params, args.kvstore, gradient_clipping_type, gradient_clipping_threshold
 
 
+def add_dual_learning_args(params):
+    """
+    add arguments for dual-learning model training
+    """
+    pass
+
+
 def main():
     params = argparse.ArgumentParser(description='CLI to train sockeye sequence-to-sequence models.')
     arguments.add_train_cli_args(params)
+    add_dual_learning_args(params)
+
     args = params.parse_args()
 
     utils.seedRNGs(args)
@@ -652,12 +671,17 @@ def main():
         json.dump(vars(args), fp)
 
     with ExitStack() as exit_stack:
+        # build run context
         context = determine_context(args, exit_stack)
+
+        # load vocabulary
         vocab_source, vocab_target = load_or_create_vocabs(args, resume_training, output_folder)
         vocab_source_size = len(vocab_source)
         vocab_target_size = len(vocab_target)
         logger.info("Vocabulary sizes: source=%d target=%d", vocab_source_size, vocab_target_size)
+
         train_iter, eval_iter, config_data = create_data_iters(args, vocab_source, vocab_target)
+
         lr_scheduler_instance = create_lr_scheduler(args, resume_training, training_state_dir)
 
         model_config = create_model_config(args, vocab_source_size, vocab_target_size, config_data)

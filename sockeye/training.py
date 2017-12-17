@@ -136,7 +136,7 @@ class TrainingModel(model.SockeyeModel):
                                                            source_embed_seq_len)
 
             # decoder
-            # target_decoded: (batch-size, target_len, decoder_depth)
+            # target_decoded: (batch_size, target_len, decoder_depth)
             target_decoded = self.decoder.decode_sequence(source_encoded, source_encoded_length, source_encoded_seq_len,
                                                           target_embed, target_embed_length, target_embed_seq_len)
 
@@ -402,6 +402,7 @@ class TrainingModel(model.SockeyeModel):
         next_data_batch = train_iter.next()
 
         while True:
+            batchStart = time.time()
             if not train_iter.iter_next():
                 train_state.epoch += 1
                 train_iter.reset()
@@ -414,11 +415,16 @@ class TrainingModel(model.SockeyeModel):
             # process batch
             batch = next_data_batch
 
+            mx.profiler.profiler_set_config(mode='all', filename='profile_output.json')
+            mx.profiler.profiler_set_state('run')
+
             if mxmonitor is not None:
                 mxmonitor.tic()
 
             # Forward-backward to get outputs, gradients
+            tstart = time.time()
             self.module.forward_backward(batch)
+            logger.info('forward_backward time cost: %f', time.time()-tstart)
 
             gradient_norm = None
             if train_state.updates > 0 and train_state.updates % checkpoint_frequency == 0:
@@ -434,7 +440,10 @@ class TrainingModel(model.SockeyeModel):
                     self.rescale_grad(ratio)
 
             # Update aggregate training loss
+            tstart = time.time()
             self.module.update_metric(metric_train, batch.label)
+            logger.info('update_metric time cost: %f', time.time()-tstart)
+            logger.info('batch time cost: %f', time.time()-batchStart)
 
             # If using an extended optimizer, provide extra state information about the current batch
             # Loss: training loss
@@ -447,7 +456,9 @@ class TrainingModel(model.SockeyeModel):
                 optimizer.pre_update_batch(batch_state)
 
             # Call optimizer to update weights given gradients, current state
+            tstart = time.time()
             self.module.update()
+            logger.info('update time cost: %f', time.time()-tstart)
 
             if mxmonitor is not None:
                 results = mxmonitor.toc()
@@ -459,6 +470,10 @@ class TrainingModel(model.SockeyeModel):
                 # pre-fetch next batch
                 next_data_batch = train_iter.next()
                 self.module.prepare(next_data_batch)
+
+            mx.profiler.profiler_set_state('stop')
+            import pdb 
+            pdb.set_trace()
 
             self.training_monitor.batch_end_callback(train_state.epoch, train_state.updates, metric_train)
             train_state.updates += 1

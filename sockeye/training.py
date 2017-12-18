@@ -37,6 +37,7 @@ from . import lr_scheduler
 from .optimizers import BatchState, CheckpointState, SockeyeOptimizer
 from . import model
 from . import utils
+from .builder import EncoderDecoderBuilder, TopKEncoderDecoderBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -90,82 +91,17 @@ class TrainingModel(model.SockeyeModel):
         self.context = context
         self.lr_scheduler = lr_scheduler
         self.bucketing = bucketing
-        self._build_model_components()
-        self.module = self._build_module(train_iter)
+        self.logger = logger
         self.training_monitor = None  # type: Optional[callback.TrainingMonitor]
 
-    def _build_module(self, train_iter: data_io.ParallelBucketSentenceIter):
-        """
-        Initializes model components, creates training symbol and module, and binds it.
-        """
-        utils.check_condition(train_iter.pad_id == C.PAD_ID == 0, "pad id should be 0")
-        source = mx.sym.Variable(C.SOURCE_NAME)
-        source_length = utils.compute_lengths(source)
-        target = mx.sym.Variable(C.TARGET_NAME)
-        target_length = utils.compute_lengths(target)
-        labels = mx.sym.reshape(data=mx.sym.Variable(C.TARGET_LABEL_NAME), shape=(-1,))
-
-        model_loss = loss.get_loss(self.config.config_loss)
-
-        data_names = [x[0] for x in train_iter.provide_data]
-        label_names = [x[0] for x in train_iter.provide_label]
-
-        def sym_gen(seq_lens):
-            """
-            Returns a (grouped) loss symbol given source & target input lengths.
-            Also returns data and label names for the BucketingModule.
-            """
-            source_seq_len, target_seq_len = seq_lens
-
-            # source embedding
-            (source_embed,
-             source_embed_length,
-             source_embed_seq_len) = self.embedding_source.encode(source, source_length, source_seq_len)
-
-            # target embedding
-            (target_embed,
-             target_embed_length,
-             target_embed_seq_len) = self.embedding_target.encode(target, target_length, target_seq_len)
-
-            # encoder
-            # source_encoded: (source_encoded_length, batch_size, encoder_depth)
-            (source_encoded,
-             source_encoded_length,
-             source_encoded_seq_len) = self.encoder.encode(source_embed,
-                                                           source_embed_length,
-                                                           source_embed_seq_len)
-
-            # decoder
-            # target_decoded: (batch_size, target_len, decoder_depth)
-            target_decoded = self.decoder.decode_sequence(source_encoded, source_encoded_length, source_encoded_seq_len,
-                                                          target_embed, target_embed_length, target_embed_seq_len)
-
-            # target_decoded: (batch_size * target_seq_len, rnn_num_hidden)
-            target_decoded = mx.sym.reshape(data=target_decoded, shape=(-3, 0))
-
-            # output layer
-            # logits: (batch_size * target_seq_len, target_vocab_size)
-            logits = self.output_layer(target_decoded)
-
-            probs = model_loss.get_loss(logits, labels)
-
-            return mx.sym.Group(probs), data_names, label_names
-
-        if self.bucketing:
-            logger.info("Using bucketing. Default max_seq_len=%s", train_iter.default_bucket_key)
-            return mx.mod.BucketingModule(sym_gen=sym_gen,
-                                          logger=logger,
-                                          default_bucket_key=train_iter.default_bucket_key,
-                                          context=self.context)
+        flag = 0
+        if 0==flag:
+            builder = EncoderDecoderBuilder(context, config, train_iter, logger)
         else:
-            logger.info("No bucketing. Unrolled to (%d,%d)",
-                        self.config.max_seq_len_source, self.config.max_seq_len_target)
-            symbol, _, __ = sym_gen(train_iter.buckets[0])
-            return mx.mod.Module(symbol=symbol,
-                                 data_names=data_names,
-                                 label_names=label_names,
-                                 logger=logger,
-                                 context=self.context)
+            builder = TopKEncoderDecoderBuilder(context, config, train_iter, logger, 3)
+
+        self.module =  builder.build(self.bucketing)
+
 
     @staticmethod
     def create_eval_metric(metric_name: AnyStr) -> mx.metric.EvalMetric:

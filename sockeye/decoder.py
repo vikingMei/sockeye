@@ -34,9 +34,9 @@ from . import utils
 logger = logging.getLogger(__name__)
 
 
-def get_decoder(config: Config) -> 'Decoder':
+def get_decoder(config: Config, prefix:str) -> 'Decoder':
     if isinstance(config, RecurrentDecoderConfig):
-        return RecurrentDecoder(config=config, prefix=C.RNN_DECODER_PREFIX)
+        return RecurrentDecoder(config=config, prefix=prefix+C.RNN_DECODER_PREFIX)
     elif isinstance(config, ConvolutionalDecoderConfig):
         return ConvolutionalDecoder(config=config, prefix=C.CNN_DECODER_PREFIX)
     elif isinstance(config, transformer.TransformerConfig):

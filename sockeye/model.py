@@ -98,7 +98,7 @@ class SockeyeModel:
     :param config: Model configuration.
     """
 
-    def __init__(self, config: ModelConfig) -> None:
+    def __init__(self, config: ModelConfig, prefix="") -> None:
         self.config = copy.deepcopy(config)
         self.config.freeze()
         logger.info("%s", self.config)
@@ -109,6 +109,7 @@ class SockeyeModel:
         self.output_layer = None  # type: Optional[layers.OutputLayer]
         self._is_built = False
         self.params = None  # type: Optional[Dict]
+        self.prefix = prefix
 
     def save_config(self, folder: str):
         """
@@ -174,20 +175,20 @@ class SockeyeModel:
         """
         assert isinstance(self.config.config_embed_source, encoder.EmbeddingConfig)
         assert isinstance(self.config.config_embed_target, encoder.EmbeddingConfig)
-        w_embed_source = mx.sym.Variable(C.SOURCE_EMBEDDING_PREFIX + "weight",
+        w_embed_source = mx.sym.Variable(self.prefix + C.SOURCE_EMBEDDING_PREFIX + "weight",
                                          shape=(self.config.config_embed_source.vocab_size,
                                                 self.config.config_embed_source.num_embed))
-        w_embed_target = mx.sym.Variable(C.TARGET_EMBEDDING_PREFIX + "weight",
+        w_embed_target = mx.sym.Variable(self.prefix + C.TARGET_EMBEDDING_PREFIX + "weight",
                                          shape=(self.config.config_embed_target.vocab_size,
                                                 self.config.config_embed_target.num_embed))
-        w_out_target = mx.sym.Variable("target_output_weight",
+        w_out_target = mx.sym.Variable(self.prefix + "target_output_weight",
                                        shape=(self.config.vocab_target_size, self.decoder.get_num_hidden()))
 
         if self.config.weight_tying:
             if C.WEIGHT_TYING_SRC in self.config.weight_tying_type \
                     and C.WEIGHT_TYING_TRG in self.config.weight_tying_type:
                 logger.info("Tying the source and target embeddings.")
-                w_embed_source = w_embed_target = mx.sym.Variable(C.SHARED_EMBEDDING_PREFIX + "weight",
+                w_embed_source = w_embed_target = mx.sym.Variable(self.prefix + C.SHARED_EMBEDDING_PREFIX + "weight",
                                                                   shape=(self.config.config_embed_source.vocab_size,
                                                                          self.config.config_embed_source.num_embed))
 
@@ -206,18 +207,18 @@ class SockeyeModel:
         Instantiates model components.
         """
         # encoder & decoder first (to know the decoder depth)
-        self.encoder = encoder.get_encoder(self.config.config_encoder)
-        self.decoder = decoder.get_decoder(self.config.config_decoder)
+        self.encoder = encoder.get_encoder(self.config.config_encoder, self.prefix)
+        self.decoder = decoder.get_decoder(self.config.config_decoder, self.prefix)
 
         # source & target embeddings
         embed_weight_source, embed_weight_target, out_weight_target = self._get_embed_weights()
         assert isinstance(self.config.config_embed_source, encoder.EmbeddingConfig)
         assert isinstance(self.config.config_embed_target, encoder.EmbeddingConfig)
         self.embedding_source = encoder.Embedding(self.config.config_embed_source,
-                                                  prefix=C.SOURCE_EMBEDDING_PREFIX,
+                                                  prefix=self.prefix + C.SOURCE_EMBEDDING_PREFIX,
                                                   embed_weight=embed_weight_source)
         self.embedding_target = encoder.Embedding(self.config.config_embed_target,
-                                                  prefix=C.TARGET_EMBEDDING_PREFIX,
+                                                  prefix=self.prefix + C.TARGET_EMBEDDING_PREFIX,
                                                   embed_weight=embed_weight_target)
 
         # output layer

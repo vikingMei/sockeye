@@ -32,9 +32,9 @@ from . import utils
 logger = logging.getLogger(__name__)
 
 
-def get_encoder(config: Config):
+def get_encoder(config: Config, prefix=""):
     if isinstance(config, RecurrentEncoderConfig):
-        return get_recurrent_encoder(config)
+        return get_recurrent_encoder(config, prefix)
     elif isinstance(config, transformer.TransformerConfig):
         return get_transformer_encoder(config)
     elif isinstance(config, ConvolutionalEncoderConfig):
@@ -85,7 +85,7 @@ class ConvolutionalEncoderConfig(Config):
         self.positional_embedding_type = positional_embedding_type
 
 
-def get_recurrent_encoder(config: RecurrentEncoderConfig) -> 'Encoder':
+def get_recurrent_encoder(config: RecurrentEncoderConfig, prefix:str) -> 'Encoder':
     """
     Returns an encoder stack with a bi-directional RNN, and a variable number of uni-directional forward RNNs.
 
@@ -96,13 +96,13 @@ def get_recurrent_encoder(config: RecurrentEncoderConfig) -> 'Encoder':
     encoders = list()  # type: List[Encoder]
 
     if config.conv_config is not None:
-        encoders.append(ConvolutionalEmbeddingEncoder(config.conv_config, prefix=C.CHAR_SEQ_ENCODER_PREFIX))
+        encoders.append(ConvolutionalEmbeddingEncoder(config.conv_config, prefix=prefix+C.CHAR_SEQ_ENCODER_PREFIX))
         if config.conv_config.add_positional_encoding:
             # If specified, add positional encodings to segment embeddings
             encoders.append(AddSinCosPositionalEmbeddings(num_embed=config.conv_config.num_embed,
                                                           scale_up_input=False,
                                                           scale_down_positions=False,
-                                                          prefix="%sadd_positional_encodings" % C.CHAR_SEQ_ENCODER_PREFIX))
+                                                          prefix=prefix+"%sadd_positional_encodings" % C.CHAR_SEQ_ENCODER_PREFIX))
 
     encoders.append(BatchMajor2TimeMajor())
 
@@ -115,7 +115,7 @@ def get_recurrent_encoder(config: RecurrentEncoderConfig) -> 'Encoder':
 
     # One layer bi-directional RNN:
     encoders.append(BiDirectionalRNNEncoder(rnn_config=config.rnn_config.copy(num_layers=1),
-                                            prefix=C.BIDIRECTIONALRNN_PREFIX,
+                                            prefix=prefix+C.BIDIRECTIONALRNN_PREFIX,
                                             layout=C.TIME_MAJOR))
 
     if config.rnn_config.num_layers > 1:
@@ -124,7 +124,7 @@ def get_recurrent_encoder(config: RecurrentEncoderConfig) -> 'Encoder':
         remaining_rnn_config = config.rnn_config.copy(num_layers=config.rnn_config.num_layers - 1,
                                                       first_residual_layer=config.rnn_config.first_residual_layer - 1)
         encoders.append(RecurrentEncoder(rnn_config=remaining_rnn_config,
-                                      prefix=C.STACKEDRNN_PREFIX,
+                                      prefix=prefix+C.STACKEDRNN_PREFIX,
                                       layout=C.TIME_MAJOR))
 
     return EncoderSequence(encoders)

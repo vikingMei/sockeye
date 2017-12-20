@@ -467,7 +467,7 @@ class RecurrentDecoder(Decoder):
         # TODO: implement variant without input feeding
         self.config = config
         self.rnn_config = config.rnn_config
-        self.attention = rnn_attention.get_attention(config.attention_config, config.max_seq_len_source)
+        self.attention = rnn_attention.get_attention(config.attention_config, config.max_seq_len_source, prefix)
         self.prefix = prefix
 
         self.num_hidden = self.rnn_config.num_hidden

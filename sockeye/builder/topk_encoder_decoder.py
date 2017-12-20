@@ -156,7 +156,7 @@ class TopKEncoderDecoderBuilder(ModelBuilder):
         return mx.sym.concat(*final_path, dim=1)
 
 
-    def _sym_gen_predict(self, seq_lens, prefix=""):
+    def sym_gen_predict(self, seq_lens, prefix=""):
         """
         Returns a (grouped) loss symbol given source & target input lengths.
         Also returns data and label names for the BucketingModule.

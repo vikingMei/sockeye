@@ -34,7 +34,6 @@ class ModelBuilder():
         self.target_lengths = utils.compute_lengths(self.target)
 
         self.labels = mx.sym.reshape(data=mx.sym.Variable(C.TARGET_LABEL_NAME), shape=(-1,))
-        self.model_loss = loss.get_loss(self.config.config_loss)
 
         self.data_names = [x[0] for x in train_iter.provide_data]
         self.label_names = [x[0] for x in train_iter.provide_label]
@@ -43,7 +42,7 @@ class ModelBuilder():
         self.max_bucket_key = train_iter.buckets[0]
 
 
-    def _sym_gen_predict(self, seq_lens, prefix=""):
+    def sym_gem_predict(self, seq_lens, prefix=""):
         """
         Returns a (grouped) loss symbol given source & target input lengths.
         Also returns data and label names for the BucketingModule.
@@ -51,15 +50,20 @@ class ModelBuilder():
         raise NotImplementedError()
 
 
+    def get_loss(self, logits):
+        model_loss = loss.get_loss(self.config.config_loss)
+        return model_loss.get_loss(logits, self.labels)
+         
+
     def build(self, bucketing:bool, prefix=""):
         """
         Initializes model components, creates training symbol and module, and binds it.
         """
         def sym_gen(seq_len):
-            logits = self._sym_gen_predict(seq_len, prefix)
-            probs = self.model_loss.get_loss(logits, self.labels)
+            logits = self.sym_gen_predict(seq_len, prefix)
+            loss = self.get_loss(logits)
 
-            return mx.sym.Group(probs), self.data_names, self.label_names
+            return mx.sym.Group(loss), self.data_names, self.label_names
 
         if bucketing:
             self.logger.info("Using bucketing. Default max_seq_len=%s", self.default_bucket_key)

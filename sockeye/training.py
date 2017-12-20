@@ -37,7 +37,7 @@ from . import lr_scheduler
 from .optimizers import BatchState, CheckpointState, SockeyeOptimizer
 from . import model
 from . import utils
-from .builder import EncoderDecoderBuilder, TopKEncoderDecoderBuilder
+from .builder import EncoderDecoderBuilder, TopKEncoderDecoderBuilder, DualEncoderDecoderBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -94,11 +94,11 @@ class TrainingModel(model.SockeyeModel):
         self.logger = logger
         self.training_monitor = None  # type: Optional[callback.TrainingMonitor]
 
-        flag = 0
+        flag = 1
         if 0==flag:
             builder = EncoderDecoderBuilder(context, config, train_iter, logger)
         else:
-            builder = TopKEncoderDecoderBuilder(context, config, train_iter, logger, 3)
+            builder = DualEncoderDecoderBuilder(context, config, train_iter, logger, 3)
 
         self.module =  builder.build(self.bucketing)
 

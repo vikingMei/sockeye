@@ -61,7 +61,7 @@ class AttentionConfig(config.Config):
         self.num_heads = num_heads
 
 
-def get_attention(config: AttentionConfig, max_seq_len: int) -> 'Attention':
+def get_attention(config: AttentionConfig, max_seq_len: int, prefix='') -> 'Attention':
     """
     Returns an Attention instance based on attention_type.
 
@@ -91,7 +91,7 @@ def get_attention(config: AttentionConfig, max_seq_len: int) -> 'Attention':
     elif config.type == C.ATT_MLP:
         return MlpAttention(input_previous_word=config.input_previous_word,
                             attention_num_hidden=config.num_hidden,
-                            layer_normalization=config.layer_normalization)
+                            layer_normalization=config.layer_normalization, prefix=prefix)
     elif config.type == C.ATT_COV:
         return MlpAttention(input_previous_word=config.input_previous_word,
                             attention_num_hidden=config.num_hidden,
@@ -577,10 +577,10 @@ class MlpAttention(Attention):
                  input_previous_word: bool,
                  attention_num_hidden: int,
                  layer_normalization: bool = False,
-                 config_coverage: Optional[coverage.CoverageConfig] = None) -> None:
+                 config_coverage: Optional[coverage.CoverageConfig] = None, prefix="") -> None:
         dynamic_source_num_hidden = 1 if config_coverage is None else config_coverage.num_hidden
         super().__init__(input_previous_word=input_previous_word,
-                         dynamic_source_num_hidden=dynamic_source_num_hidden)
+                         dynamic_source_num_hidden=dynamic_source_num_hidden, prefix=prefix)
         self.attention_num_hidden = attention_num_hidden
         # input (encoder) to hidden
         self.att_e2h_weight = mx.sym.Variable("%se2h_weight" % self.prefix)

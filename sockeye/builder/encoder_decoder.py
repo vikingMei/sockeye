@@ -17,7 +17,7 @@ from typing import AnyStr, List, Optional
 
 
 class EncoderDecoderBuilder(ModelBuilder):
-    def _sym_gen_predict(self, seq_lens, prefix=""):
+    def sym_gen_predict(self, seq_lens, prefix=""):
         """
         Returns a (grouped) loss symbol given source & target input lengths.
         Also returns data and label names for the BucketingModule.
@@ -52,7 +52,7 @@ class EncoderDecoderBuilder(ModelBuilder):
         target_decoded = mx.sym.reshape(data=target_decoded, shape=(-3, 0))
 
         # output layer
-        # logits: (batch_size * target_seq_len, target_vocab_size)
-        logits = module_factory.output_layer(target_decoded)
+        # pred: (batch_size * target_seq_len, target_vocab_size)
+        pred = module_factory.output_layer(target_decoded)
 
-        return logits
+        return pred

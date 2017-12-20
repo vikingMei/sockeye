@@ -6,3 +6,4 @@
 
 from .encoder_decoder import  EncoderDecoderBuilder 
 from .topk_encoder_decoder import TopKEncoderDecoderBuilder
+from .dual import DualEncoderDecoderBuilder 

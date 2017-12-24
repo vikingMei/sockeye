@@ -57,6 +57,9 @@ def get_loss(loss_config: LossConfig) -> 'Loss':
     """
     if loss_config.name == C.CROSS_ENTROPY:
         return CrossEntropyLoss(loss_config)
+    elif loss_config.name == C.DUAL_LOSS:
+        from .dual import DualLoss 
+        return DualLoss(loss_config)
     else:
         raise ValueError("unknown loss name: %s" % loss_config.name)
 

@@ -287,17 +287,19 @@ OUTPUT_HANDLERS = [OUTPUT_HANDLER_TRANSLATION,
 # metrics
 ACCURACY = 'accuracy'
 PERPLEXITY = 'perplexity'
+DUAL = 'dual'
 BLEU = 'bleu'
 CHRF = 'chrf'
 BLEU_VAL = BLEU + "-val"
 CHRF_VAL = CHRF + "-val"
 AVG_TIME = "avg-sec-per-sent-val"
-METRICS = [PERPLEXITY, ACCURACY, BLEU]
+METRICS = [PERPLEXITY, ACCURACY, BLEU, DUAL]
 METRIC_MAXIMIZE = {ACCURACY: True, BLEU: True, PERPLEXITY: False}
-METRIC_WORST = {ACCURACY: 0.0, BLEU: 0.0, PERPLEXITY: np.inf}
+METRIC_WORST = {ACCURACY: 0.0, BLEU: 0.0, PERPLEXITY: np.inf, DUAL:0.0}
 
 # loss
 CROSS_ENTROPY = 'cross-entropy'
+DUAL_LOSS = 'dual-loss'
 
 LOSS_NORM_BATCH = 'batch'
 LOSS_NORM_VALID = "valid"

@@ -25,6 +25,7 @@ from functools import reduce
 from typing import AnyStr, List, Optional
 from math import sqrt
 
+import pdb
 import mxnet as mx
 import numpy as np
 
@@ -37,7 +38,8 @@ from . import lr_scheduler
 from .optimizers import BatchState, CheckpointState, SockeyeOptimizer
 from . import model
 from . import utils
-from .builder import EncoderDecoderBuilder, TopKEncoderDecoderBuilder, DualEncoderDecoderBuilder
+from .builder import EncoderDecoderBuilder, TopKEncoderDecoderBuilder
+from .dual import DualMetric, DualEncoderDecoderBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +115,8 @@ class TrainingModel(model.SockeyeModel):
             return utils.Accuracy(ignore_label=C.PAD_ID, output_names=[C.SOFTMAX_OUTPUT_NAME])
         elif metric_name == C.PERPLEXITY:
             return mx.metric.Perplexity(ignore_label=C.PAD_ID, output_names=[C.SOFTMAX_OUTPUT_NAME])
+        elif C.DUAL == metric_name:
+            return DualMetric()
         else:
             raise ValueError("unknown metric name")
 
@@ -359,6 +363,7 @@ class TrainingModel(model.SockeyeModel):
 
             # Forward-backward to get outputs, gradients
             tstart = time.time()
+            print(batch)
             self.module.forward_backward(batch)
             logger.info('forward_backward time cost: %f', time.time()-tstart)
 
@@ -408,8 +413,6 @@ class TrainingModel(model.SockeyeModel):
                 self.module.prepare(next_data_batch)
 
             mx.profiler.profiler_set_state('stop')
-            import pdb 
-            pdb.set_trace()
 
             self.training_monitor.batch_end_callback(train_state.epoch, train_state.updates, metric_train)
             train_state.updates += 1

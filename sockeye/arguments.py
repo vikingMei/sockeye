@@ -575,7 +575,7 @@ def add_training_args(params):
 
     train_params.add_argument('--loss',
                               default=C.CROSS_ENTROPY,
-                              choices=[C.CROSS_ENTROPY],
+                              choices=[C.CROSS_ENTROPY, C.DUAL_LOSS],
                               help='Loss to optimize. Default: %(default)s.')
     train_params.add_argument('--label-smoothing',
                               default=0.0,
@@ -590,7 +590,7 @@ def add_training_args(params):
     train_params.add_argument('--metrics',
                               nargs='+',
                               default=[C.PERPLEXITY],
-                              choices=[C.PERPLEXITY, C.ACCURACY],
+                              choices=[C.PERPLEXITY, C.ACCURACY, C.DUAL],
                               help='Names of metrics to track on training and validation data. Default: %(default)s.')
     train_params.add_argument('--optimized-metric',
                               default=C.PERPLEXITY,

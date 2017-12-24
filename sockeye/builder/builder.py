@@ -52,7 +52,7 @@ class ModelBuilder():
 
     def get_loss(self, logits):
         model_loss = loss.get_loss(self.config.config_loss)
-        return model_loss.get_loss(logits, self.labels)
+        return model_loss.get_loss(logits, self.labels, self.source)
          
 
     def build(self, bucketing:bool, prefix=""):

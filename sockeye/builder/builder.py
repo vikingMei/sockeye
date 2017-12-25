@@ -2,7 +2,7 @@
 # coding: utf-8
 #
 # Usage: 
-# Author: wxm71(weixing.mei@aispeech.com)
+# Author: wxm71(auimoviki@gmail.com)
 
 import copy
 import mxnet as mx
@@ -52,7 +52,7 @@ class ModelBuilder():
 
     def get_loss(self, logits):
         model_loss = loss.get_loss(self.config.config_loss)
-        return model_loss.get_loss(logits, self.labels, self.source)
+        return model_loss.get_loss(logits, self.labels)
          
 
     def build(self, bucketing:bool, prefix=""):

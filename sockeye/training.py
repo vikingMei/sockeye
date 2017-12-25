@@ -96,6 +96,7 @@ class TrainingModel(model.SockeyeModel):
         self.logger = logger
         self.training_monitor = None  # type: Optional[callback.TrainingMonitor]
 
+        # TODO read from config
         flag = 1
         if 0==flag:
             builder = EncoderDecoderBuilder(context, config, train_iter, logger)
@@ -355,15 +356,14 @@ class TrainingModel(model.SockeyeModel):
             # process batch
             batch = next_data_batch
 
-            mx.profiler.profiler_set_config(mode='all', filename='profile_output.json')
-            mx.profiler.profiler_set_state('run')
+            #mx.profiler.profiler_set_config(mode='all', filename='profile_output.json')
+            #mx.profiler.profiler_set_state('run')
 
             if mxmonitor is not None:
                 mxmonitor.tic()
 
             # Forward-backward to get outputs, gradients
             tstart = time.time()
-            print(batch)
             self.module.forward_backward(batch)
             logger.info('forward_backward time cost: %f', time.time()-tstart)
 
@@ -412,7 +412,7 @@ class TrainingModel(model.SockeyeModel):
                 next_data_batch = train_iter.next()
                 self.module.prepare(next_data_batch)
 
-            mx.profiler.profiler_set_state('stop')
+            #mx.profiler.profiler_set_state('stop')
 
             self.training_monitor.batch_end_callback(train_state.epoch, train_state.updates, metric_train)
             train_state.updates += 1

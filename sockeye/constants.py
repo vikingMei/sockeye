@@ -165,7 +165,7 @@ LOGITS_NAME = "logits"
 SOFTMAX_NAME = "softmax"
 SOFTMAX_OUTPUT_NAME = SOFTMAX_NAME + "_output"
 
-MEASURE_SPEED_EVERY = 50  # measure speed and metrics every X batches
+MEASURE_SPEED_EVERY = 1  # measure speed and metrics every X batches
 
 # Monitor constants
 STAT_FUNC_DEFAULT = "mx_default"  # default MXNet monitor stat func: mx.nd.norm(x)/mx.nd.sqrt(x.size)

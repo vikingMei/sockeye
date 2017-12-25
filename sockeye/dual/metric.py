@@ -2,7 +2,7 @@
 # coding: utf-8
 #
 # Usage: 
-# Author: wxm71(weixing.mei@aispeech.com)
+# Author: wxm71(auimoviki@gmail.com)
 
 import pdb
 import logging
@@ -38,8 +38,6 @@ class DualMetric(EvalMetric):
         self.alpha = 0.5
 
     def update(self, labels, preds):
-        pdb.set_trace()
-
         # TODO: 
         #
         #   1. see dual/loss.py, get_loss function
@@ -66,5 +64,3 @@ class DualMetric(EvalMetric):
 
         self.sum_metric += (floss+bloss).asscalar()
         self.num_inst += batch_size
-
-        return loss

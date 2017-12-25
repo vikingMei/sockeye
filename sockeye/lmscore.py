@@ -2,7 +2,7 @@
 # coding: utf-8
 #
 # Usage: 
-# Author: wxm71(weixing.mei@aispeech.com)
+# Author: wxm71(auimoviki@gmail.com)
 
 import pdb 
 import logging
@@ -12,7 +12,6 @@ from . import constants as C
 import mxnet as mx
 
 logger = logging.getLogger(__name__)
-
 
 
 class LMScoreConfig(object):
@@ -77,6 +76,8 @@ class LMScore(mx.operator.CustomOp):
         '''
         load ngram module from file 
         '''
+        super(LMScore, self).__init__()
+
         self.model = model
         self.config = config
 
@@ -102,25 +103,9 @@ class LMScore(mx.operator.CustomOp):
 
         pred = self.model.get_outputs()[-1]
         pred = pred.reshape(data.shape)
-        print('forward: ', pred)
-        self.assign(out_data, req[0], pred)
+        self.assign(out_data[0], req[0], pred)
 
 
     def backward(self, req, out_grad, in_data, out_data, in_grad, aux):
-        print('backward\n')
-        self.assign(in_grad[0], req[0], out_grad[0])
-
-
-
-if '__main__'==__name__:
-    ctx = mx.gpu(0)
-
-    epoch = 39
-    prefix = '../../incubator-mxnet/example/rnn/word_lm/output/model'
-
-    data = mx.sym.Variable('input', dtype='int32')
-    score = mx.sym.Custom(data, name='lm_score', op_type='lm_score', prefix=prefix, epoch=epoch, pad=0)
-
-    datain = mx.nd.array([[1,2,3],[1,2,3]], ctx=ctx)
-    net = score.bind(ctx, args={'input':datain})
-    net.forward()
+        print('VIKING lmscore backward\n')
+        self.assign(in_grad[0], req[0], out_data[0])

@@ -2,7 +2,7 @@
 # coding: utf-8
 #
 # Usage: 
-# Author: wxm71(weixing.mei@aispeech.com)
+# Author: wxm71(auimoviki@gmail.com)
 
 
 import logging
@@ -56,7 +56,7 @@ class DualLoss(Loss):
         # the last two is a temporary solution
         #   1. make label appear in final compute graph, stop runtime complain
         #   2. using as label for B->A translation
-        return [mx.sym.make_loss(forward_logits, name="forward_loss"), 
+        return [mx.sym.make_loss(forward_logits), 
                 mx.sym.SoftmaxOutput(data=logits,
                                      label=sources,
                                      ignore_label=C.PAD_ID,

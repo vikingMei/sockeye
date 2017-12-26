@@ -26,7 +26,7 @@ class DualLoss(Loss):
                     loss_config.normalization_type, loss_config.label_smoothing)
         self.loss_config = loss_config
 
-    def get_loss(self, logits: mx.sym.Symbol, labels: mx.sym.Symbol, sources:mx.sym.Symbol, beam_size, forward_logits) -> List[mx.sym.Symbol]:
+    def get_loss(self, forward_logits, path_prob, backward_logits, labels, source, beam_size) -> List[mx.sym.Symbol]:
         """
         Returns loss and softmax output symbols given logits and integer-coded labels.
 
@@ -46,26 +46,28 @@ class DualLoss(Loss):
         # -> [batch_size, beam_size, target_seq_len] 
         # -> [batch_size*beam_size, target_seq_len] 
         # -> [batch_size*beam_size*target_seq_len] 
-        sources = mx.sym.expand_dims(sources, axis=1) 
-        sources = mx.sym.repeat(sources, repeats=beam_size, axis=1) 
-        sources = mx.sym.reshape(sources, shape=(-3,0))
-        sources = mx.sym.reshape(sources, shape=(-3,))
-        
+        sources = mx.sym.expand_dims(sources, axis=1, name="loss_expand_source") 
+        sources = mx.sym.repeat(sources, repeats=beam_size, axis=1, name='loss_source_repeat1') 
+        sources = mx.sym.reshape(sources, shape=(-3,0), name='loss_source_reshape1')
+        sources = mx.sym.reshape(sources, shape=(-3,), name='loss_source_reshape2')
+
+        forward_logits = mx.sym.BlockGrad(forward_logits)
+
         # TODO: merge the last two into dataIter.label
         #
         # the last two is a temporary solution
         #   1. make label appear in final compute graph, stop runtime complain
         #   2. using as label for B->A translation
-        return [mx.sym.make_loss(forward_logits), 
-                mx.sym.SoftmaxOutput(data=logits,
+        return [mx.sym.make_loss(forward_logits, name='lm_score'),
+                mx.sym.SoftmaxOutput(data=backward_logits,
                                      label=sources,
                                      ignore_label=C.PAD_ID,
                                      use_ignore=True,
                                      normalization=normalization,
                                      smooth_alpha=self.loss_config.label_smoothing,
-                                     name=C.SOFTMAX_NAME),
+                                     name='reduction_score'),
                 mx.sym.make_loss(labels, name=C.TARGET_LABEL_NAME), 
-                mx.sym.make_loss(sources)]
+                mx.sym.make_loss(sources, name='makeloss_on_source')]
 
     def create_metric(self) -> "DualMetric":
         raise NotImplementedError()

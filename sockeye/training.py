@@ -101,7 +101,7 @@ class TrainingModel(model.SockeyeModel):
         if 0==flag:
             builder = EncoderDecoderBuilder(context, config, train_iter, logger)
         else:
-            builder = DualEncoderDecoderBuilder(context, config, train_iter, logger, 3)
+            builder = DualEncoderDecoderBuilder(context, config, train_iter, logger)
 
         self.module =  builder.build(self.bucketing)
 
@@ -116,7 +116,7 @@ class TrainingModel(model.SockeyeModel):
             return utils.Accuracy(ignore_label=C.PAD_ID, output_names=[C.SOFTMAX_OUTPUT_NAME])
         elif metric_name == C.PERPLEXITY:
             return mx.metric.Perplexity(ignore_label=C.PAD_ID, output_names=[C.SOFTMAX_OUTPUT_NAME])
-        elif C.DUAL == metric_name:
+        elif metric_name == C.DUAL:
             return DualMetric()
         else:
             raise ValueError("unknown metric name")
@@ -363,9 +363,7 @@ class TrainingModel(model.SockeyeModel):
                 mxmonitor.tic()
 
             # Forward-backward to get outputs, gradients
-            tstart = time.time()
             self.module.forward_backward(batch)
-            logger.info('forward_backward time cost: %f', time.time()-tstart)
 
             gradient_norm = None
             if train_state.updates > 0 and train_state.updates % checkpoint_frequency == 0:
@@ -381,10 +379,7 @@ class TrainingModel(model.SockeyeModel):
                     self.rescale_grad(ratio)
 
             # Update aggregate training loss
-            tstart = time.time()
             self.module.update_metric(metric_train, batch.label)
-            logger.info('update_metric time cost: %f', time.time()-tstart)
-            logger.info('batch time cost: %f', time.time()-batchStart)
 
             # If using an extended optimizer, provide extra state information about the current batch
             # Loss: training loss
@@ -397,9 +392,7 @@ class TrainingModel(model.SockeyeModel):
                 optimizer.pre_update_batch(batch_state)
 
             # Call optimizer to update weights given gradients, current state
-            tstart = time.time()
             self.module.update()
-            logger.info('update time cost: %f', time.time()-tstart)
 
             if mxmonitor is not None:
                 results = mxmonitor.toc()

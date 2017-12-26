@@ -11,6 +11,7 @@ from .. import data_io
 from .. import constants as C
 from .. import lmscore
 
+from ..model import ModelConfig 
 from ..builder import ModelBuilder
 
 import pdb
@@ -20,15 +21,22 @@ from typing import AnyStr, List, Optional
 
 import inspect
 
+from .config import DualConfig
+
 def PrintFrame():
-  callerframerecord = inspect.stack()[2]    # 0 represents this line
-                                            # 1 represents line at caller
-  frame = callerframerecord[0]
-  info = inspect.getframeinfo(frame)
-  return info.lineno
+    """
+    print grandparent's path , for debug
+    """
+    callerframerecord = inspect.stack()[2]    # 0: this line, 1: parent line, 2: grandparent line
+    frame = callerframerecord[0]
+    info = inspect.getframeinfo(frame)
+    return info.lineno
 
 
 def debug_shape(sym):
+    """
+    used to debug shape of symbol
+    """
     lineno = PrintFrame() 
 
     if int==type(sym):
@@ -40,8 +48,8 @@ def debug_shape(sym):
     ftgt = 0
     flab = 0
 
-    srcshape=(40,40)
-    tgtshape=(40,36)
+    srcshape=(20,40)
+    tgtshape=(20,36)
 
     for item in inputs:
         if 'source'==item:
@@ -59,29 +67,17 @@ def debug_shape(sym):
     elif 1==ftgt:
         print(lineno, sym.name, sym.infer_shape(target=tgtshape))
 
+
 class DualEncoderDecoderBuilder(ModelBuilder):
     """
     dual translate model with 
     """
-    def __init__(self, context: List[mx.context.Context],
-            config: model.ModelConfig,
-            train_iter: data_io.ParallelBucketSentenceIter, 
-            logger, k) -> None:
+    def __init__(self, context: List[mx.context.Context], config: ModelConfig,
+            train_iter: data_io.ParallelBucketSentenceIter, logger) -> None:
         super().__init__(context, config, train_iter, logger)
-        self.beam_size = k
         self.prefix = 'dual_'
-
-        # [batch_size, target_seq_len] 
-        # -> [batch_size, 1, target_seq_len] 
-        # -> [batch_size, beam_size, target_seq_len] 
-        # -> [batch_size*beam_size, target_seq_len] 
-        # -> [batch_size*beam_size*target_seq_len] 
-        labels = mx.sym.Variable(C.TARGET_LABEL_NAME)
-        labels = mx.sym.expand_dims(labels, axis=1) 
-        labels = mx.sym.repeat(labels, repeats=self.beam_size, axis=1) 
-        self.labels = mx.sym.reshape(labels, shape=(-1,))
-
-        #self.label_names = []
+        self.config_all = config
+        self.config = config.config_dual
 
 
     ##
@@ -89,30 +85,37 @@ class DualEncoderDecoderBuilder(ModelBuilder):
     #
     # @param rows, a list whoes length is target_seq_len, contain items in size [batch_size,beam_size]
     # @param cols, same as row
+    # @param probs, probability of each timestamp, same shape as row
     # @param target_seq_len, the length of rows and cols 
     #
     # @return valid path generate from rows and cols, of size [batch_size, target_seq_len, beam_size]
-    def _get_path_from_beam(self, rows, cols, target_seq_len):
+    def _get_path_from_beam(self, rows, cols, probs, target_seq_len):
         final_path = []
+        final_prob = []
 
         # [batch_size, beam_size]
-        # TODO: read batch_size from config
-        batch_size = 20
-        beam_size = self.beam_size
+        batch_size = self.config.batch_size
+        beam_size = self.config.beam_size
 
         # list of [1,beam_size], of length batch_size
         precol = mx.sym.split(cols[target_seq_len-1], axis=0, num_outputs=batch_size)
+        preprob = mx.sym.split(probs[target_seq_len-1], axis=0, num_outputs=batch_size)
+
+        # list of [beam_size], of length batch_size
         prerow = mx.sym.split(rows[target_seq_len-1], axis=0, num_outputs=batch_size, squeeze_axis=1)
 
         for i in range(target_seq_len-2, -1, -1):
             final_path.extend(precol)
+            final_prob.extend(preprob)
 
-            # list of [1,beam_size], of length beam_size
+            # list of [1,beam_size], of length batch_size
             curcol = mx.sym.split(cols[i], axis=0, num_outputs=batch_size)  
             currow = mx.sym.split(rows[i], axis=0, num_outputs=batch_size)
+            curprob = mx.sym.split(probs[i], axis=0, num_outputs=batch_size)
 
             tmpcol = []
             tmprow = []
+            tmpprob = []
             for j in range(0, batch_size):
                 # [1, beam_size] -> [beam_size, beam_size]
                 # -> [beam_size,]
@@ -124,25 +127,43 @@ class DualEncoderDecoderBuilder(ModelBuilder):
 
                 # [1, beam_size] -> [beam_size, beam_size]
                 # -> [beam_size,]
+                # -> [1, beam_size]
+                tmp = mx.sym.repeat(curprob[j], repeats=beam_size, axis=0) 
+                tmp = mx.sym.pick(tmp, prerow[j])
+                tmp = mx.sym.reshape(tmp, shape=(-4,1,-1))
+                tmpprob.append(tmp)
+
+                # [1, beam_size] -> [beam_size, beam_size]
+                # -> [beam_size,]
                 tmp = mx.sym.repeat(currow[j], repeats=beam_size, axis=0) 
                 tmp = mx.sym.pick(tmp, prerow[j])
                 tmprow.append(tmp)
 
             precol = tmpcol 
             prerow = tmprow
+            preprob = tmpprob
 
         # list of [1, beam_size], which length is target_seq_len*batch_size
         final_path.extend(curcol)  
         final_path.reverse()
 
+        final_prob.extend(curprob)  
+        final_prob.reverse()
+
         # target_seq_len*batch_size*beam_size
         # -> [target_seq_len*batch_size, beam_size]
         # -> [target_seq_len, batch_size, beam_size]
+        # -> [batch_size, target_seq_len, beam_size]
         final_path = mx.sym.concat(*final_path, dim=0)
         final_path = mx.sym.reshape(final_path, shape=(-4,target_seq_len,-1, 0))
+        final_path = mx.sym.swapaxes(final_path, dim1=0, dim2=1)
+
+        final_prob = mx.sym.concat(*final_prob, dim=0)
+        final_prob = mx.sym.reshape(final_prob, shape=(-4,target_seq_len,-1, 0))
+        final_prob = mx.sym.swapaxes(final_prob, dim1=0, dim2=1)
 
         # [batch_size, target_seq_len, beam_size]
-        return mx.sym.swapaxes(final_path, dim1=0, dim2=1)
+        return final_path, final_prob
 
 
     ##
@@ -152,9 +173,6 @@ class DualEncoderDecoderBuilder(ModelBuilder):
     def beam_decode(self, model, source_encoded, source_encoded_seq_len, 
             target_embed, target_seq_len, beam_size):
         target_vocab_size = self.config.vocab_target_size
-
-        # list of [batch_size, 1, num_embed], which length is target_seq_len
-        target_embed_split = mx.sym.split(target_embed, num_outputs=target_seq_len, axis=1)
 
         # [batch_size, 1, source_seq_len, num_hidden]
         # -> [batch_size, beam_size, source_seq_len, encode_hidden_len]
@@ -177,18 +195,13 @@ class DualEncoderDecoderBuilder(ModelBuilder):
 
         target_row_all = []
         target_col_all = []
-        pred_4loss_all = []   # just for debug, keeping the original loss compute, while can testing top-k in forward compute
+        target_prob_all = []
 
         # decode time step
         for t in range(target_seq_len):
             # 001. get previous target embedding
             # [batch_size, beam_size, num_embed]
             target_embed_prev,_,_ = model.embedding_target.encode(target_prev, self.target_lengths, target_seq_len)
-
-            # just for debugging
-            # target_embed_split[t]: [batch_size, 1, num_embed]
-            # target_embed_prev: [batch_size, beam_size, num_embed]
-            target_embed_prev = mx.sym.broadcast_add(lhs=target_embed_prev, rhs=target_embed_split[t])
 
             # [batch_size*beam_size, num_embed]
             target_embed_prev = mx.sym.reshape(target_embed_prev, shape=(-3,0))
@@ -204,14 +217,6 @@ class DualEncoderDecoderBuilder(ModelBuilder):
             #
             # [batch_size*beam_size, target_vocab_size]
             pred = model.output_layer(target_decoded) 
-
-            # just for debug, keep current loss computation function not complain for new model
-            #
-            # [batch_size, beam_size, target_vocab_size]
-            # [batch_size, 1, target_vocab_size]
-            pred_split = mx.sym.reshape(pred, shape=(-4, -1, beam_size, target_vocab_size))
-            pred_split = mx.sym.split(pred_split, num_outputs=beam_size, axis=1)
-            pred_4loss_all.append(pred_split[0])
 
             # 004. length penalty
             # TODO
@@ -230,18 +235,16 @@ class DualEncoderDecoderBuilder(ModelBuilder):
             # 005. save result for loss compute
             target_row_all.append(topk_pos_row)
             target_col_all.append(topk_pos_col)
+            target_prob_all.append(topkval)
 
             # 006. update target_prev
             # [batch_size, beam_size] 
             target_prev = topk_pos_col
 
-        # [batch_size, target_seq_len, target_vocab_size]
-        pred_4loss = mx.sym.concat(*pred_4loss_all, dim=1)
-
         # [batch_size, target_seq_len, beam_size]
-        path = self._get_path_from_beam(target_row_all, target_col_all, target_seq_len) 
+        path, prob = self._get_path_from_beam(target_row_all, target_col_all, target_prob_all, target_seq_len) 
 
-        return pred_4loss, path
+        return path, prob
     
 
     def forward(self, model, bucket):
@@ -286,10 +289,10 @@ class DualEncoderDecoderBuilder(ModelBuilder):
 
         # beam_decoded: [batch_size, target_seq_len, target_vocab_size]
         # beam_path:    [batch_size, target_seq_len, beam_size]
-        beam_decoded, beam_path = self.beam_decode(model, source_encoded, source_encoded_seq_len, 
-            target_embed, target_embed_seq_len, self.beam_size)
+        beam_path, path_prob = self.beam_decode(model, source_encoded, source_encoded_seq_len, 
+            target_embed, target_embed_seq_len, self.config.beam_size)
 
-        return beam_decoded, beam_path
+        return beam_path, path_prob
 
 
     def backward(self, model, bucket, beam_out):
@@ -298,7 +301,7 @@ class DualEncoderDecoderBuilder(ModelBuilder):
             - beam_path:    [batch_size, target_seq_len, beam_size]
         '''
         target_seq_len, source_seq_len = bucket
-        beam_size = self.beam_size
+        beam_size = self.config.beam_size
 
         # [batch_size, target_seq_len, beam_size]
         # -> [batch_size, beam_size, target_seq_len]
@@ -317,85 +320,132 @@ class DualEncoderDecoderBuilder(ModelBuilder):
         target_lengths = mx.sym.repeat(target_lengths, repeats=beam_size, axis=1)
         target_lengths = mx.sym.reshape(target_lengths, shape=(-1,))
 
-        # [batch_size, target_seq_len] -> [batch_size, 1, target_seq_len]
-        # -> [batch_size, beam_size, target_seq_len] 
-        # -> [batc_size*beam_size, target_seq_len]
+        # [batch_size, source_seq_len] -> [batch_size, 1, source_seq_len]
+        # -> [batch_size, beam_size, source_seq_len] 
+        # -> [batc_size*beam_size, source_seq_len]
         target = mx.sym.expand_dims(self.source, axis=1)
         target = mx.sym.repeat(target, repeats=beam_size, axis=1)
         target = mx.sym.reshape(target, shape=(-3, 0))
 
         # inputs embedding
-        # [batch_size*beam_size, source_seq_len, num_embed]
+        # [batch_size*beam_size, target_seq_len, num_embed]
         (source_embed,
          source_embed_length,
          source_embed_seq_len) = model.embedding_source.encode(inputs, source_lengths, source_seq_len)
 
         # target embedding
-        # [batch_size*beam_size, target_seq_len, num_embed]
+        # [batch_size*beam_size, source_seq_len, num_embed]
         (target_embed,
          target_embed_length,
          target_embed_seq_len) = model.embedding_target.encode(target, target_lengths, target_seq_len)
 
         # encoder
-        # source_encoded: (source_encoded_length, batch_size*beam_size, encoder_depth)
+        # source_encoded: (target_encoded_length, batch_size*beam_size, encoder_depth)
         (source_encoded,
          source_encoded_length,
          source_encoded_seq_len) = model.encoder.encode(source_embed, source_embed_length, source_embed_seq_len)
 
         # decoder
-        # target_decoded: (batch_size*beam_size, target_len, decoder_depth)
+        # target_decoded: (batch_size*beam_size, source_len, decoder_depth)
         target_decoded = model.decoder.decode_sequence(source_encoded, source_encoded_length, source_encoded_seq_len,
                                                       target_embed, target_embed_length, target_embed_seq_len)
 
-        # target_decoded: (batch_size*beam_size*target_seq_len, rnn_num_hidden)
-        target_decoded = mx.sym.reshape(data=target_decoded, shape=(-3, 0))
+        # TODO: is this neccessary?
+        #
+        # target_decoded: (batch_size*beam_size*source_seq_len, rnn_num_hidden)
+        #target_decoded = mx.sym.reshape(data=target_decoded, shape=(-3, 0))
 
         # output layer
-        # logits: (batch_size*beam_size*target_seq_len, target_vocab_size)
+        # logits: (batch_size*beam_size, source_seq_len, target_vocab_size)
         pred = model.output_layer(target_decoded)
 
         return pred
 
 
-    def sym_gen_predict(self, seq_lens, prefix=""):
+    def sym_gen_predict(self, bucket, prefix=""):
         """
         Returns a (grouped) loss symbol given source & target input lengths.
         Also returns data and label names for the BucketingModule.
         """
-        model_forward = model.SockeyeModel(self.config, "%sf_"%self.prefix)
+        source_seq_len,target_seq_len = bucket
+
+        model_forward = model.SockeyeModel(self.config_all, "%sf_"%self.prefix)
         model_forward._build_model_components()
 
-        model_backward = model.SockeyeModel(self.config, "%sb_"%self.prefix)
+        model_backward = model.SockeyeModel(self.config_all, "%sb_"%self.prefix)
         model_backward._build_model_components()
 
-        # forward_decoded: [batch_size, target_seq_len, target_vocab_size]
-        # forward_path:    [batch_size, target_seq_len, beam_size]
-        forward_decoded, forward_path = self.forward(model_forward, seq_lens)
+        # [batch_size, target_seq_len, beam_size]
+        forward_path, path_prob = self.forward(model_forward, bucket)
 
-        # [batch_size*beam_size*target_seq_len, target_vocab_size]
-        backward_decoded = self.backward(model_backward, seq_lens, forward_path)
+        # [batch_size*beam_size, source_seq_len, source_vocab_size]
+        backward_decoded = self.backward(model_backward, bucket, forward_path)
 
-        return [forward_path,backward_decoded]
+        return [forward_path, path_prob, backward_decoded, source_seq_len]
+
 
     def get_loss(self, logits):
-        forward_path,backward_logits = logits
+        # forward_path: [batch_size, source_seq_len, beam_size]
+        # path_prob: [batch_size, source_seq_len, beam_size]
+        # backward_logits: [batch_size*beam_size, source_seq_len, source_vocab_size]
+        forward_path, path_prob, backward_logits, source_seq_len = logits
 
-        # [batch_size, target_seq_len, beam_size]
-        # -> [batch_size, beam_size, target_seq_len]
-        # -> [batch_size*beam_size, target_seq_len]
+        # STEP 1. importance sampling of AB output probability for each beam sentences
+        #
+        # L1 normalization
+        # [batch_size, source_seq_len, beam_size] 
+        # -> [batch_size, beam_size]
+        path_prob = -mx.sym.log(path_prob+1e-8)
+        path_prob = mx.sym.sum(path_prob, axis=1) 
+
+        # [batch_size, 1]
+        prob_sum = mx.sym.sum(path_prob, axis=1, keepdims=True)
+
+        # [batch_size, beam_size] -> [batch_size*beam_size]
+        path_prob = mx.sym.broadcast_div(path_prob, prob_sum)  
+        path_prob = mx.sym.reshape(path_prob, shape=(-1,))
+
+        # STEP 2. language model score 
+        # [batch_size, source_seq_len, beam_size]
+        # -> [batch_size, beam_size, source_seq_len]
+        # -> [batch_size*beam_size, source_seq_len]
+        # -> [batch_size*beam_size, source_seq_len]: -log(p(y|model))
+        # -> [batch_size*beam_size]
+        #forward_path = mx.sym.BlockGrad(forward_path)
         forward_path = mx.sym.swapaxes(forward_path, dim1=1, dim2=2) 
         forward_path = mx.sym.reshape(forward_path, shape=(-3, 0)) 
+        forward_logits = mx.sym.Custom(data=forward_path, op_type='lm_score', 
+                prefix=self.config.lm_prefix, epoch=self.config.lm_epoch, pad=C.PAD_ID)
+        forward_logits = mx.sym.sum(forward_logits, axis=-1)
 
-        # [batch_size*beam_size, target_seq_len]: -log(p(y|model))
-        pad = 0
-        epoch = 39
-        prefix = './lm/model'
+        # STEP 3. BA model    
+        # [batch_size, source_seq_len]
+        # -> [batch_size, 1, source_seq_len]
+        # -> [batch_size, beam_size, source_seq_len]
+        # -> [batch_size*beam_size, source_seq_len]
+        # -> [batch_size*beam_size*source_seq_len]
+        source = mx.sym.expand_dims(self.source, axis=1)
+        source = mx.sym.repeat(source, repeats=self.config.beam_size, axis=1)
+        source = mx.sym.reshape(source, shape=(-3,0)) 
+        source = mx.sym.reshape(source, shape=(-3,))
+        ignore = (C.PAD_ID==source)
 
-        forward_logits = mx.sym.Custom(forward_path, name='lm_score', op_type='lm_score',
-                prefix=prefix, epoch=epoch, pad=pad)
+        # [batch_size*beam_size, source_seq_len, source_vocab_size]
+        # -> [batch_size*beam_size*source_seq_len, source_vocab_size]
+        # -> [batch_size*beam_size*source_seq_len]
+        # -> [batch_size*beam_size, source_seq_len]
+        # -> [batch_size*beam_size,]
+        backward_logits = mx.sym.reshape(backward_logits, shape=(-3, 0))
+        backward_logits = mx.sym.softmax(backward_logits)
+        logits = mx.sym.pick(backward_logits, source)
+        logits = (1-ignore)*logits + ignore
+        logits = -mx.sym.log(logits+1e-8)
+        logits = mx.sym.reshape(logits, shape=(-4, -1, source_seq_len))
+        logits = mx.sym.sum(logits, axis=-1)
 
-        # backward loss
-        model_loss = loss.get_loss(self.config.config_loss)
+        # [batch_size*beam_size]
+        alpha = self.config.alpha
+        loss = (alpha*forward_logits + (1-alpha)*logits) * path_prob 
+        loss = mx.sym.sum(loss) / self.config.beam_size
 
-        return model_loss.get_loss(backward_logits, self.labels, self.source, self.beam_size, forward_logits)
-
+        return [mx.sym.make_loss(loss), self.labels]

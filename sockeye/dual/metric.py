@@ -38,29 +38,12 @@ class DualMetric(EvalMetric):
         self.alpha = 0.5
 
     def update(self, labels, preds):
-        # TODO: 
-        #
-        #   1. see dual/loss.py, get_loss function
-        #   2. add label smoothing and normalization from loss.py
-        #   3. check the size of labels and preds, in Perplexity, there is a zip loop
-        #
-        # fpred:  [batch_size*beam_size, target_seq_len] -log(p(y_{i+1}|y_i)
-        # bpred:  [batch_size*beam_size*target_seq_len, source_vocab_size], 
-        #                  softmax output of distribution on source vocabulary
-        # label:  [batch_size*beam_size*target_seq_len]
-        fpred, bpred, _, label = preds
+        """
+        the reward have been compute in loss comute 
+        """
+        reward = preds[0]
+        target_label = preds[1]
+        batch_size = target_label.shape[0] 
 
-        batch_size = fpred.shape[0]
-
-        floss = self.alpha*mx.nd.sum(fpred)
-
-        # [batch_size*beam_size*target_seq_len]
-        bprob = mx.nd.pick(bpred, label.astype(dtype="int32"))
-        ignore = (label == C.PAD_ID).astype(dtype=bpred.dtype)
-
-        bprob = bprob * (1 - ignore) + ignore
-        bloss = -mx.nd.log(bprob + 1e-8)    # pylint: disable=invalid-unary-operand-type
-        bloss = (1-self.alpha) * mx.nd.sum(bloss)
-
-        self.sum_metric += (floss+bloss).asscalar()
+        self.sum_metric += reward.asscalar()
         self.num_inst += batch_size

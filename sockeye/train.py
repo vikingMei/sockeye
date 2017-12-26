@@ -45,6 +45,7 @@ from . import training
 from . import transformer
 from . import utils
 from . import vocab
+from . import dual
 
 # Temporary logger, the real one (logging to a file probably, will be created in the main function)
 logger = setup_main_logger(__name__, file_logging=False, console=True)
@@ -537,6 +538,10 @@ def create_model_config(args: argparse.Namespace,
                                   normalization_type=args.loss_normalization_type,
                                   label_smoothing=args.label_smoothing)
 
+    config_dual = dual.DualConfig(args.lm_prefix, args.lm_epoch, 
+            args.beam_size, args.batch_size, args.dual_alpha,
+            vocab_source_size, vocab_target_size)
+
     model_config = model.ModelConfig(config_data=config_data,
                                      max_seq_len_source=max_seq_len_source,
                                      max_seq_len_target=max_seq_len_target,
@@ -547,6 +552,7 @@ def create_model_config(args: argparse.Namespace,
                                      config_encoder=config_encoder,
                                      config_decoder=config_decoder,
                                      config_loss=config_loss,
+                                     config_dual=config_dual,
                                      weight_tying=args.weight_tying,
                                      weight_tying_type=args.weight_tying_type if args.weight_tying else None,
                                      weight_normalization=args.weight_normalization)
@@ -632,17 +638,10 @@ def define_optimizer(args, lr_scheduler_instance) -> Tuple[str, Dict, str, str, 
     return optimizer, optimizer_params, args.kvstore, gradient_clipping_type, gradient_clipping_threshold
 
 
-def add_dual_learning_args(params):
-    """
-    add arguments for dual-learning model training
-    """
-    pass
-
-
 def main():
     params = argparse.ArgumentParser(description='CLI to train sockeye sequence-to-sequence models.')
     arguments.add_train_cli_args(params)
-    add_dual_learning_args(params)
+    arguments.add_dual_learning_args(params)
 
     args = params.parse_args()
 

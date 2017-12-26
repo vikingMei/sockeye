@@ -20,6 +20,7 @@ import logging
 import math
 import pickle
 import random
+random.seed(0)
 from collections import OrderedDict
 from typing import Any, Dict, Iterator, Iterable, List, NamedTuple, Optional, Tuple
 

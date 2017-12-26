@@ -42,7 +42,7 @@ class LMScoreConfig(object):
 
 @mx.operator.register("lm_score")
 class LMScoreProp(mx.operator.CustomOpProp):
-    def __init__(self, prefix:str, epoch:int, pad:Optional[int] = 0) -> None:
+    def __init__(self, prefix, epoch, pad = 0):
         super(LMScoreProp, self).__init__(need_top_grad=False)
 
         config = LMScoreConfig(prefix=prefix, epoch=epoch, pad=pad)
@@ -64,7 +64,7 @@ class LMScoreProp(mx.operator.CustomOpProp):
     def infer_shape(self, in_shape):
         data_shape = in_shape[0]
         output_shape = in_shape[0]
-        return [data_shape], [output_shape], []
+        return in_shape, [output_shape], []
 
     def infer_type(self, in_type):
         return in_type, [in_type[0]], []
@@ -98,7 +98,8 @@ class LMScore(mx.operator.CustomOp):
 
         batch = mx.io.DataBatch([data], [label], pad=self.config.pad, provide_data=provide_data)
 
-        self.model.bind(data_shapes=provide_data, label_shapes=provide_label, for_training=False)
+        # TODO: test the bind function, whether is necessary every time 
+        self.model.bind(data_shapes=provide_data, label_shapes=provide_label, for_training=False, force_rebind=True)
         self.model.forward(batch)
 
         pred = self.model.get_outputs()[-1]
@@ -107,5 +108,4 @@ class LMScore(mx.operator.CustomOp):
 
 
     def backward(self, req, out_grad, in_data, out_data, in_grad, aux):
-        print('VIKING lmscore backward\n')
         self.assign(in_grad[0], req[0], out_data[0])

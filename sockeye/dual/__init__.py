@@ -7,3 +7,4 @@
 from .loss import DualLoss
 from .metric import DualMetric
 from .module import DualEncoderDecoderBuilder
+from .config import DualConfig

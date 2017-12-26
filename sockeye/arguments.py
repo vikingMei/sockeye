@@ -946,3 +946,19 @@ def add_build_vocab_args(params):
     params.add_argument('-i', '--inputs', required=True, nargs='+', help='List of text files to build vocabulary from.')
     params.add_argument('-o', '--output', required=True, type=str, help="Output filename to write vocabulary to.")
     add_vocab_args(params)
+
+
+def add_dual_learning_args(params):
+    dual_params = params.add_argument_group('Dual Learning')
+    dual_params.add_argument('--lm-device-ids', default=[-2],
+                               help='gpu used for language model decode. Default: %(default)s. ',
+                               type=int)
+    dual_params.add_argument('--lm-prefix', type=str, 
+                                help='prefix used to load language model')
+    dual_params.add_argument('--lm-epoch', type=int, 
+                                help='which epoch of language model to load')
+    dual_params.add_argument('--beam-size', type=int, 
+                                help='beam size in forward beam search in dual learning')
+    dual_params.add_argument('--dual-alpha', type=float, 
+                                help='alpha used in compute dual-learning loss, weight on r1,'
+                                'namely, the language model reward')

@@ -18,14 +18,12 @@ from typing import AnyStr, List, Optional
 class ModelBuilder():
     def __init__(self, context: List[mx.context.Context],
             config: model.ModelConfig,
-            train_iter: data_io.ParallelBucketSentenceIter, logger) -> None:
+            train_iter: data_io.BaseParallelSampleIter, logger) -> None:
         self.config = copy.deepcopy(config)
         self.config.freeze()
 
         self.context = context
         self.logger = logger
-
-        utils.check_condition(train_iter.pad_id == C.PAD_ID == 0, "pad id should be 0")
 
         self.source = mx.sym.Variable(C.SOURCE_NAME)
         self.source_lengths = utils.compute_lengths(self.source)

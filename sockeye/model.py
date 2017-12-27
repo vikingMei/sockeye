@@ -64,9 +64,10 @@ class ModelConfig(Config):
                  config_dual: Config,
                  weight_tying: bool = False,
                  weight_tying_type: Optional[str] = C.WEIGHT_TYING_TRG_SOFTMAX,
-                 weight_normalization: bool = False) -> None:
+                 weight_normalization: bool = False, is_dual:bool = False) -> None:
         super().__init__()
         self.config_data = config_data
+        self.is_dual = is_dual
         self.max_seq_len_source = max_seq_len_source
         self.max_seq_len_target = max_seq_len_target
         self.vocab_source_size = vocab_source_size
@@ -224,6 +225,6 @@ class SockeyeModel:
                                                vocab_size=self.config.vocab_target_size,
                                                weight=out_weight_target,
                                                weight_normalization=self.config.weight_normalization, 
-                                               prefix=self.prefix)
+                                               prefix=self.prefix+C.DEFAULT_OUTPUT_LAYER_PREFIX)
 
         self._is_built = True

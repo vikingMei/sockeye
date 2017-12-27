@@ -1035,7 +1035,10 @@ def add_build_vocab_args(params):
 
 def add_dual_learning_args(params):
     dual_params = params.add_argument_group('Dual Learning')
-    dual_params.add_argument('--lm-device-ids', default=[0],
+    dual_params.add_argument('--is-dual',
+                               action='store_true',
+                               help='where build a dual model')
+    dual_params.add_argument('--lm-device-ids', default=0,
                                help='gpu used for language model decode. Default: %(default)s. ',
                                type=int)
     dual_params.add_argument('--lm-prefix', type=str, 
@@ -1047,6 +1050,10 @@ def add_dual_learning_args(params):
     dual_params.add_argument('--dual-alpha', type=float, 
                                 help='alpha used in compute dual-learning loss, weight on r1,'
                                 'namely, the language model reward')
+    dual_params.add_argument('--forward-param', type=str, 
+                                help='file to load forward parameters')
+    dual_params.add_argument('--backward-param', type=str, 
+                                help='file to load backward parameters')
 
 
 def add_init_embedding_args(params):

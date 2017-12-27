@@ -612,7 +612,8 @@ def create_model_config(args: argparse.Namespace,
 
     config_dual = dual.DualConfig(args.lm_prefix, args.lm_epoch, args.lm_device_ids,
             args.beam_size, args.batch_size, args.dual_alpha,
-            vocab_source_size, vocab_target_size)
+            vocab_source_size, vocab_target_size,
+            args.forward_param, args.backward_param)
 
     model_config = model.ModelConfig(config_data=config_data,
                                      max_seq_len_source=max_seq_len_source,
@@ -627,7 +628,7 @@ def create_model_config(args: argparse.Namespace,
                                      config_dual=config_dual,
                                      weight_tying=args.weight_tying,
                                      weight_tying_type=args.weight_tying_type if args.weight_tying else None,
-                                     weight_normalization=args.weight_normalization)
+                                     weight_normalization=args.weight_normalization, is_dual=args.is_dual)
     return model_config
 
 
@@ -658,10 +659,19 @@ def create_training_model(model_config: model.ModelConfig,
 
     # We may consider loading the params in TrainingModule, for consistency
     # with the training state saving
-    pdb.set_trace()
     if resume_training:
         logger.info("Found partial training in directory %s. Resuming from saved state.", training_state_dir)
         training_model.load_params_from_file(os.path.join(training_state_dir, C.TRAINING_STATE_PARAMS_NAME))
+    elif args.is_dual:
+        if not args.forward_param: 
+            logger.error('Dual model shoud given forward and backward params simulataneously, forward_param missing')
+        elif not args.backward_param:
+            logger.error('Dual model shoud given forward and backward params simulataneously, backward_param missing')
+
+    if args.forward_param and args.backward_param:
+        logger.info('Training will initialize from dual parameters from [%s] and [%s]', args.forward_param, args.backward_param)
+        params = utils.load_dual_param_from_file(args.forward_param, args.backward_param)
+        training_model.module.params = params
     elif args.params:
         logger.info("Training will initialize from parameters loaded from '%s'", args.params)
         training_model.load_params_from_file(args.params)

@@ -96,12 +96,10 @@ class TrainingModel(model.SockeyeModel):
         self.logger = logger
         self.training_monitor = None  # type: Optional[callback.TrainingMonitor]
 
-        # TODO read from config
-        flag = 1
-        if 0==flag:
-            builder = EncoderDecoderBuilder(context, config, train_iter, logger)
-        else:
+        if config.is_dual:
             builder = DualEncoderDecoderBuilder(context, config, train_iter, logger)
+        else:
+            builder = EncoderDecoderBuilder(context, config, train_iter, logger)
 
         self.module =  builder.build(self.bucketing)
         self._is_built = True
@@ -545,7 +543,7 @@ class TrainingModel(model.SockeyeModel):
         """
         params_fname = os.path.join(output_folder, C.PARAMS_NAME % checkpoint)
         self.load_params_from_file(params_fname)  # sets self.params
-        self.module.set_params(arg_params=self.params, aux_params={})
+        self.module.params = parset_params(arg_params=self.params, aux_params={})
 
     def _evaluate(self, training_state, val_iter, val_metric):
         """

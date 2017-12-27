@@ -769,3 +769,40 @@ def grouper(iterable: Iterable, size: int) -> Iterable:
         if not chunk:
             return
         yield chunk
+
+
+# 'decoder_rnn_att_h2s_weight' |  'att_e2h_weight'
+# 'decoder_rnn_att_h2s_weight' |  'att_h2s_weight'
+# 'decoder_rnn_att_norm_beta'  |  'att_norm_beta'
+# 'decoder_rnn_att_norm_gamma' |  'att_norm_gamma'                                               
+# 'decoder_rnn_att_q2h_weight' |  'att_q2h_weight'
+def trans_dual_param(param, is_forward=True) -> Dict[str, mx.nd.NDArray]:
+    attentions_params = ['att_e2h_weight','att_h2s_weight','att_norm_beta','att_norm_gamma','att_q2h_weight']
+    res = {}
+    for key,val in param.items():
+        if key in attentions_params:
+            key = 'decoder_rnn_%s' % key
+
+        if is_forward:
+            key = 'dual_f_%s' % key
+        else:
+            key = 'dual_b_%s' % key
+
+        res[key] = val
+
+    return res
+
+
+def load_dual_param_from_file(forward_param, backward_param) -> Tuple[Dict[str, mx.nd.NDArray], Dict[str, mx.nd.NDArray]]:
+    """
+    load parameter for dual model
+    """
+    params,_ = load_params(forward_param)
+    fparam = trans_dual_param(params, True)
+
+    params,_ = load_params(backward_param)
+    bparam = trans_dual_param(params, False)
+
+    bparam.update(fparam)
+
+    return bparam

@@ -19,8 +19,7 @@ from typing import AnyStr, List, Optional
 class TopKEncoderDecoderBuilder(ModelBuilder):
     def __init__(self, context: List[mx.context.Context],
             config: model.ModelConfig,
-            train_iter: data_io.ParallelBucketSentenceIter, 
-            logger, k) -> None:
+            train_iter: data_io.BaseParallelSampleIter, logger, k) -> None:
         super().__init__(context, config, train_iter, logger)
         self.beam_size = k
         self.prefix = 'topk_'

@@ -73,7 +73,8 @@ class DualEncoderDecoderBuilder(ModelBuilder):
     dual translate model with 
     """
     def __init__(self, context: List[mx.context.Context], config: ModelConfig,
-            train_iter: data_io.ParallelBucketSentenceIter, logger) -> None:
+            train_iter: data_io.BaseParallelSampleIter, logger) -> None:
+
         super().__init__(context, config, train_iter, logger)
         self.prefix = 'dual_'
         self.config_all = config
@@ -415,7 +416,8 @@ class DualEncoderDecoderBuilder(ModelBuilder):
         forward_path = mx.sym.swapaxes(forward_path, dim1=1, dim2=2) 
         forward_path = mx.sym.reshape(forward_path, shape=(-3, 0)) 
         forward_logits = mx.sym.Custom(data=forward_path, op_type='lm_score', 
-                prefix=self.config.lm_prefix, epoch=self.config.lm_epoch, pad=C.PAD_ID)
+                prefix=self.config.lm_prefix, epoch=self.config.lm_epoch, pad=C.PAD_ID,
+                devid=self.config.lm_device_ids)
         forward_logits = mx.sym.sum(forward_logits, axis=-1)
 
         # STEP 3. BA model    

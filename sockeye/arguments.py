@@ -950,7 +950,7 @@ def add_build_vocab_args(params):
 
 def add_dual_learning_args(params):
     dual_params = params.add_argument_group('Dual Learning')
-    dual_params.add_argument('--lm-device-ids', default=[-2],
+    dual_params.add_argument('--lm-device-ids', default=[0],
                                help='gpu used for language model decode. Default: %(default)s. ',
                                type=int)
     dual_params.add_argument('--lm-prefix', type=str, 

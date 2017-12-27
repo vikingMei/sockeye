@@ -104,10 +104,11 @@ class TrainingModel(model.SockeyeModel):
             builder = DualEncoderDecoderBuilder(context, config, train_iter, logger)
 
         self.module =  builder.build(self.bucketing)
+        self._is_built = True
 
 
     @staticmethod
-    def create_eval_metric(metric_name: AnyStr) -> mx.metric.EvalMetric:
+    def create_eval_metric(metric_name: AnyStr, config) -> mx.metric.EvalMetric:
         """
         Creates an EvalMetric given a metric names.
         """
@@ -117,16 +118,16 @@ class TrainingModel(model.SockeyeModel):
         elif metric_name == C.PERPLEXITY:
             return mx.metric.Perplexity(ignore_label=C.PAD_ID, output_names=[C.SOFTMAX_OUTPUT_NAME])
         elif metric_name == C.DUAL:
-            return DualMetric()
+            return DualMetric(config.config_dual.beam_size)
         else:
             raise ValueError("unknown metric name")
 
     @staticmethod
-    def create_eval_metric_composite(metric_names: List[AnyStr]) -> mx.metric.CompositeEvalMetric:
+    def create_eval_metric_composite(metric_names: List[AnyStr], config) -> mx.metric.CompositeEvalMetric:
         """
         Creates a composite EvalMetric given a list of metric names.
         """
-        metrics = [TrainingModel.create_eval_metric(metric_name) for metric_name in metric_names]
+        metrics = [TrainingModel.create_eval_metric(metric_name, config) for metric_name in metric_names]
         return mx.metric.create(metrics)
 
     def fit(self,
@@ -313,13 +314,13 @@ class TrainingModel(model.SockeyeModel):
         if lr_decay_opt_states_reset == C.LR_DECAY_OPT_STATES_RESET_INITIAL:
             self.save_optimizer_states(os.path.join(output_folder, C.OPT_STATES_INITIAL))
 
-        metric_train = self.create_eval_metric_composite(metrics)
-        metric_val = self.create_eval_metric_composite(metrics)
+        metric_train = self.create_eval_metric_composite(metrics, self.config)
+        metric_val = self.create_eval_metric_composite(metrics, self.config)
         # If optimizer requires it, track loss as metric
         if isinstance(optimizer, SockeyeOptimizer):
             # Select training loss or optimized metric
             if optimizer.request_optimized_metric:
-                metric_loss = self.create_eval_metric(self.training_monitor.optimized_metric)
+                metric_loss = self.create_eval_metric(self.training_monitor.optimized_metric, slef.config)
             else:
                 metric_loss = loss.get_loss(self.config.config_loss).create_metric()
 

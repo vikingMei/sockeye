@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class LMScoreConfig(object):
-    def __init__(self, prefix:str, epoch:int, pad:Optional[int] = 0) -> None:
+    def __init__(self, prefix:str, epoch:int, pad:Optional[int] = 0, devid:Optional[int] = 0) -> None:
         '''
         PARAMETERS:
             - prefix: prefix to load lstm model
@@ -36,17 +36,19 @@ class LMScoreConfig(object):
         self.label_name = 'label'
 
         # TODO: read gpu id from config
-        self.context = mx.gpu(1)
+        self.context = mx.gpu(devid)
 
 
 
 @mx.operator.register("lm_score")
 class LMScoreProp(mx.operator.CustomOpProp):
-    def __init__(self, prefix, epoch, pad = 0):
+    def __init__(self, prefix, epoch, pad = 0, devid=0):
         super(LMScoreProp, self).__init__(need_top_grad=False)
 
-        config = LMScoreConfig(prefix=prefix, epoch=epoch, pad=pad)
+        config = LMScoreConfig(prefix=prefix, epoch=epoch, pad=pad, devid=0)
         self.config = config
+
+        logger.info('load launguage model from [%s-%04d.params], run on device: [%d]', prefix, int(epoch), int(devid))
 
         # load module
         self.model = mx.module.Module.load(config.prefix, config.epoch, 

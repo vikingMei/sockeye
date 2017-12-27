@@ -20,6 +20,7 @@ import os
 import pickle
 import shutil
 import sys
+import pdb
 from contextlib import ExitStack
 from typing import Optional, Dict, List, Tuple
 
@@ -538,7 +539,7 @@ def create_model_config(args: argparse.Namespace,
                                   normalization_type=args.loss_normalization_type,
                                   label_smoothing=args.label_smoothing)
 
-    config_dual = dual.DualConfig(args.lm_prefix, args.lm_epoch, 
+    config_dual = dual.DualConfig(args.lm_prefix, args.lm_epoch, args.lm_device_ids,
             args.beam_size, args.batch_size, args.dual_alpha,
             vocab_source_size, vocab_target_size)
 
@@ -586,6 +587,7 @@ def create_training_model(model_config: model.ModelConfig,
 
     # We may consider loading the params in TrainingModule, for consistency
     # with the training state saving
+    pdb.set_trace()
     if resume_training:
         logger.info("Found partial training in directory %s. Resuming from saved state.", training_state_dir)
         training_model.load_params_from_file(os.path.join(training_state_dir, C.TRAINING_STATE_PARAMS_NAME))

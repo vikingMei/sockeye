@@ -29,13 +29,12 @@ class DualMetric(EvalMetric):
     """
 
     def __init__(self,
+                 beam_size: int, 
                  name: str = C.DUAL,
                  output_names: Optional[List[str]] = None,
                  label_names: Optional[List[str]] = None) -> None:
         super().__init__(name, output_names=None, label_names=None)
-
-        # TODO: read from config
-        self.alpha = 0.5
+        self.beam_size = beam_size
 
     def update(self, labels, preds):
         """
@@ -46,4 +45,4 @@ class DualMetric(EvalMetric):
         batch_size = target_label.shape[0] 
 
         self.sum_metric += reward.asscalar()
-        self.num_inst += batch_size
+        self.num_inst += batch_size/self.beam_size

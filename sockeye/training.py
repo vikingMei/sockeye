@@ -86,7 +86,7 @@ class TrainingModel(model.SockeyeModel):
     def __init__(self,
                  config: model.ModelConfig,
                  context: List[mx.context.Context],
-                 train_iter: data_io.ParallelBucketSentenceIter,
+                 train_iter: data_io.BaseParallelSampleIter,
                  bucketing: bool,
                  lr_scheduler) -> None:
         super().__init__(config)
@@ -131,12 +131,13 @@ class TrainingModel(model.SockeyeModel):
         return mx.metric.create(metrics)
 
     def fit(self,
-            train_iter: data_io.ParallelBucketSentenceIter,
-            val_iter: data_io.ParallelBucketSentenceIter,
+            train_iter: data_io.BaseParallelSampleIter,
+            val_iter: data_io.BaseParallelSampleIter,
             output_folder: str,
             max_params_files_to_keep: int,
             metrics: List[AnyStr],
             initializer: mx.initializer.Initializer,
+            allow_missing_params: bool,
             max_updates: Optional[int],
             checkpoint_frequency: int,
             optimizer: str,
@@ -149,6 +150,8 @@ class TrainingModel(model.SockeyeModel):
             min_num_epochs: Optional[int] = None,
             max_num_epochs: Optional[int] = None,
             decode_and_evaluate: int = 0,
+            decode_and_evaluate_fname_source: Optional[str] = None,
+            decode_and_evaluate_fname_target: Optional[str] = None,
             decode_and_evaluate_context: Optional[mx.Context] = None,
             use_tensorboard: bool = False,
             mxmonitor_pattern: Optional[str] = None,
@@ -165,6 +168,7 @@ class TrainingModel(model.SockeyeModel):
         :param max_params_files_to_keep: Maximum number of params files to keep in the output folder (last n are kept).
         :param metrics: The metrics that will be evaluated during training.
         :param initializer: The parameter initializer.
+        :param allow_missing_params: Allow misssing parameters when initializing model parameters from file.
         :param max_updates: Optional maximum number of batches to process.
         :param checkpoint_frequency: Frequency of checkpointing in number of updates.
         :param optimizer: The MXNet optimizer that will update the parameters.
@@ -177,6 +181,9 @@ class TrainingModel(model.SockeyeModel):
         :param max_num_epochs: Optional maximum number of epochs to train.
         :param decode_and_evaluate: Monitor BLEU during training (0: off, >=0: the number of sentences to decode for BLEU
                evaluation, -1: decode the full validation set.).
+        :param decode_and_evaluate_fname_source: Filename of source data to decode and evaluate.
+        :param decode_and_evaluate_fname_target: Filename of target data (references) to decode and evaluate.
+        :param decode_and_evaluate_context: Optional MXNet context for decode and evaluate.
         :param use_tensorboard: If True write tensorboard compatible logs for monitoring training and
                validation metrics.
         :param mxmonitor_pattern: Optional pattern to match to monitor weights/gradients/outputs
@@ -201,14 +208,14 @@ class TrainingModel(model.SockeyeModel):
         self.module.symbol.save(os.path.join(output_folder, C.SYMBOL_NAME))
 
         self.module.init_params(initializer=initializer, arg_params=self.params, aux_params=None,
-                                allow_missing=False, force_init=False)
+                                allow_missing=allow_missing_params, force_init=False)
         self._log_params()
 
         self.module.init_optimizer(kvstore=kvstore, optimizer=optimizer, optimizer_params=optimizer_params)
 
         cp_decoder = checkpoint_decoder.CheckpointDecoder(decode_and_evaluate_context,
-                                                          self.config.config_data.validation_source,
-                                                          self.config.config_data.validation_target,
+                                                          decode_and_evaluate_fname_source,
+                                                          decode_and_evaluate_fname_target,
                                                           output_folder,
                                                           sample_size=decode_and_evaluate) \
             if decode_and_evaluate else None
@@ -275,8 +282,8 @@ class TrainingModel(model.SockeyeModel):
         return self._get_curr_module()._optimizer
 
     def _fit(self,
-             train_iter: data_io.ParallelBucketSentenceIter,
-             val_iter: data_io.ParallelBucketSentenceIter,
+             train_iter: data_io.BaseParallelSampleIter,
+             val_iter: data_io.BaseParallelSampleIter,
              output_folder: str,
              kvstore: str,
              max_params_files_to_keep: int,
@@ -557,7 +564,7 @@ class TrainingModel(model.SockeyeModel):
         return self.training_monitor.eval_end_callback(training_state.checkpoint, val_metric)
 
     def _checkpoint(self, training_state: _TrainingState, output_folder: str,
-                    train_iter: data_io.ParallelBucketSentenceIter):
+                    train_iter: data_io.BaseParallelSampleIter):
         """
         Saves checkpoint. Note that the parameters are saved in _save_params.
         """
@@ -648,7 +655,7 @@ class TrainingModel(model.SockeyeModel):
         """
         self._get_curr_module().load_optimizer_states(fname)
 
-    def load_checkpoint(self, directory: str, train_iter: data_io.ParallelBucketSentenceIter) -> _TrainingState:
+    def load_checkpoint(self, directory: str, train_iter: data_io.BaseParallelSampleIter) -> _TrainingState:
         """
         Loads the full training state from disk. This includes optimizer,
         random number generators and everything needed.  Note that params

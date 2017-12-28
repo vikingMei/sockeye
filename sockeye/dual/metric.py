@@ -52,6 +52,11 @@ class DualMetric(EvalMetric):
         self.num_inst += batch_size
 
 
+    def reset(self):
+        self.num_inst = 0
+        self.sum_metric = [0.0, 0.0, 0.0]
+
+
     def get(self):
         if self.num_inst == 0:
             return (self.name, float('nan'))

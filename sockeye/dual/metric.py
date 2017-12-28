@@ -34,15 +34,29 @@ class DualMetric(EvalMetric):
                  output_names: Optional[List[str]] = None,
                  label_names: Optional[List[str]] = None) -> None:
         super().__init__(name, output_names=None, label_names=None)
+        self.name = [C.DUAL, 'forward_ppl', 'backward_ppl']
         self.beam_size = beam_size
+        self.sum_metric = [0,0,0]
+
 
     def update(self, labels, preds):
         """
         the reward have been compute in loss comute 
         """
-        reward = preds[0]
-        target_label = preds[1]
+        reward = preds[1]
+        target_label = labels[0]
         batch_size = target_label.shape[0] 
 
-        self.sum_metric += reward.asscalar()
-        self.num_inst += batch_size/self.beam_size
+        for i in range(0,3):
+            self.sum_metric[i] += preds[i].sum().asscalar()
+        self.num_inst += batch_size
+
+
+    def get(self):
+        if self.num_inst == 0:
+            return (self.name, float('nan'))
+        else:
+            sum_metric = [0,0,0]
+            for i in range(0,3):
+                sum_metric[i] = self.sum_metric[i]/self.num_inst
+            return (self.name, sum_metric)

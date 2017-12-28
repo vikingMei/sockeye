@@ -33,6 +33,8 @@ class DualLoss(Loss):
         :param logits: Shape: (batch_size * target_seq_len, target_vocab_size).
         :param labels: Shape: (batch_size * target_seq_len,).
         :return: List of loss symbol.
+
+        NOT USE YET
         """
         if self.loss_config.normalization_type == C.LOSS_NORM_VALID:
             normalization = "valid"

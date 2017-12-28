@@ -362,7 +362,8 @@ def create_data_iters_and_vocab(args: argparse.Namespace,
             max_seq_len_source=max_seq_len_source,
             max_seq_len_target=max_seq_len_target,
             bucketing=not args.no_bucketing,
-            bucket_width=args.bucket_width)
+            bucket_width=args.bucket_width,
+            is_dual=args.is_dual)
         return train_iter, validation_iter, config_data, vocab_source, vocab_target
 
 

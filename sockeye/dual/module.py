@@ -79,6 +79,8 @@ class DualEncoderDecoderBuilder(ModelBuilder):
         self.prefix = 'dual_'
         self.config_all = config
         self.config = config.config_dual
+ 
+        self.labels = mx.sym.Variable(C.TARGET_LABEL_NAME)
 
 
     ##
@@ -386,17 +388,17 @@ class DualEncoderDecoderBuilder(ModelBuilder):
 
 
     def get_loss(self, logits):
-        # forward_path: [batch_size, source_seq_len, beam_size]
-        # path_prob: [batch_size, source_seq_len, beam_size]
+        # forward_path: [batch_size, target_seq_len, beam_size]
+        # path_prob: [batch_size, target_seq_len, beam_size]
         # backward_logits: [batch_size*beam_size, source_seq_len, source_vocab_size]
         forward_path, path_prob, backward_logits, source_seq_len = logits
 
         # STEP 1. importance sampling of AB output probability for each beam sentences
         #
         # L1 normalization
-        # [batch_size, source_seq_len, beam_size] 
-        # -> [batch_size, beam_size]
-        path_prob = -mx.sym.log(path_prob+1e-8)
+        #
+        # [batch_size, source_seq_len, beam_size] -> [batch_size, beam_size]
+        path_logits = -mx.sym.log(path_prob+1e-8)
         path_prob = mx.sym.sum(path_prob, axis=1) 
 
         # [batch_size, 1]
@@ -407,47 +409,43 @@ class DualEncoderDecoderBuilder(ModelBuilder):
         path_prob = mx.sym.reshape(path_prob, shape=(-1,))
 
         # STEP 2. language model score 
-        # [batch_size, source_seq_len, beam_size]
-        # -> [batch_size, beam_size, source_seq_len]
-        # -> [batch_size*beam_size, source_seq_len]
-        # -> [batch_size*beam_size, source_seq_len]: -log(p(y|model))
+        # [batch_size, target_seq_len, beam_size]
+        # -> [batch_size, beam_size, target_seq_len]
+        # -> [batch_size*beam_size, target_seq_len]
+        # -> [batch_size*beam_size, target_seq_len]: -log(p(y|model))
         # -> [batch_size*beam_size]
-        #forward_path = mx.sym.BlockGrad(forward_path)
         forward_path = mx.sym.swapaxes(forward_path, dim1=1, dim2=2) 
         forward_path = mx.sym.reshape(forward_path, shape=(-3, 0)) 
-        forward_logits = mx.sym.Custom(data=forward_path, op_type='lm_score', 
+        lm_logits = mx.sym.Custom(data=forward_path, op_type='lm_score', 
                 prefix=self.config.lm_prefix, epoch=self.config.lm_epoch, pad=C.PAD_ID,
                 devid=self.config.lm_device_ids)
-        forward_logits = mx.sym.sum(forward_logits, axis=-1)
+        lm_pred = mx.sym.sum(lm_logits, axis=-1)
 
         # STEP 3. BA model    
         # [batch_size, source_seq_len]
         # -> [batch_size, 1, source_seq_len]
         # -> [batch_size, beam_size, source_seq_len]
         # -> [batch_size*beam_size, source_seq_len]
-        # -> [batch_size*beam_size*source_seq_len]
-        source = mx.sym.expand_dims(self.source, axis=1)
-        source = mx.sym.repeat(source, repeats=self.config.beam_size, axis=1)
-        source = mx.sym.reshape(source, shape=(-3,0)) 
-        source = mx.sym.reshape(source, shape=(-3,))
-        ignore = (C.PAD_ID==source)
+        label = mx.sym.expand_dims(self.labels, axis=1)
+        label = mx.sym.repeat(label, repeats=self.config.beam_size, axis=1)
+        label = mx.sym.reshape(label, shape=(-3,0))
+        ignore = (C.PAD_ID==label)
 
         # [batch_size*beam_size, source_seq_len, source_vocab_size]
-        # -> [batch_size*beam_size*source_seq_len, source_vocab_size]
-        # -> [batch_size*beam_size*source_seq_len]
+        # -> [batch_size*beam_size, source_seq_len]
+        # -> [batch_size*beam_size, source_seq_len]
         # -> [batch_size*beam_size, source_seq_len]
         # -> [batch_size*beam_size,]
-        backward_logits = mx.sym.reshape(backward_logits, shape=(-3, 0))
         backward_logits = mx.sym.softmax(backward_logits)
-        logits = mx.sym.pick(backward_logits, source)
-        logits = (1-ignore)*logits + ignore
-        logits = -mx.sym.log(logits+1e-8)
-        logits = mx.sym.reshape(logits, shape=(-4, -1, source_seq_len))
-        logits = mx.sym.sum(logits, axis=-1)
+        backward_logits = mx.sym.pick(backward_logits, label)
+        backward_logits = (1-ignore)*backward_logits + ignore
+        backward_logits = -mx.sym.log(backward_logits+1e-8)
+        backward_pred = mx.sym.sum(backward_logits, axis=-1)
 
         # [batch_size*beam_size]
         alpha = self.config.alpha
-        loss = (alpha*forward_logits + (1-alpha)*logits) * path_prob 
-        loss = mx.sym.sum(loss) / self.config.beam_size
+        #loss = (alpha*lm_pred + (1-alpha)*backward_pred) * path_prob 
+        loss = (alpha*lm_pred + (1-alpha)*backward_pred) / self.config.beam_size
+        loss = mx.sym.sum(loss)
 
-        return [mx.sym.make_loss(loss), self.labels]
+        return [mx.sym.make_loss(loss), mx.sym.make_loss(lm_pred), mx.sym.make_loss(backward_pred)]

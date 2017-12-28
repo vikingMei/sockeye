@@ -311,7 +311,7 @@ class DualEncoderDecoderBuilder(ModelBuilder):
         # -> [batch_size*beam_size, target_seq_len]
         inputs = mx.sym.swapaxes(beam_out, dim1=1, dim2=2)
         inputs = mx.sym.reshape(inputs, shape=(-3, 0))
-        inputs = mx.sym.BlockGrad(inputs)
+        #inputs = mx.sym.BlockGrad(inputs)
 
         # [batch_size, 1] -> [batch_size, beam_size] -> [batc_size*beam_size,]
         source_lengths = mx.sym.expand_dims(self.target_lengths, axis=1)
@@ -419,6 +419,7 @@ class DualEncoderDecoderBuilder(ModelBuilder):
         lm_logits = mx.sym.Custom(data=forward_path, op_type='lm_score', 
                 prefix=self.config.lm_prefix, epoch=self.config.lm_epoch, pad=C.PAD_ID,
                 devid=self.config.lm_device_ids)
+        lm_logits = mx.sym.BlockGrad(lm_logits)
         lm_pred = mx.sym.sum(lm_logits, axis=-1)
 
         # STEP 3. BA model    
@@ -444,8 +445,8 @@ class DualEncoderDecoderBuilder(ModelBuilder):
 
         # [batch_size*beam_size]
         alpha = self.config.alpha
-        #loss = (alpha*lm_pred + (1-alpha)*backward_pred) * path_prob 
-        loss = (alpha*lm_pred + (1-alpha)*backward_pred) / self.config.beam_size
+        loss = (alpha*lm_pred + (1-alpha)*backward_pred) * path_prob 
+        #loss = (alpha*lm_pred + (1-alpha)*backward_pred) / self.config.beam_size
         loss = mx.sym.sum(loss)
 
         return [mx.sym.make_loss(loss), mx.sym.make_loss(lm_pred), mx.sym.make_loss(backward_pred)]

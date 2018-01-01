@@ -22,6 +22,7 @@ from typing import AnyStr, List, Optional
 import inspect
 
 from .config import DualConfig
+from . import outop
 
 def PrintFrame():
     """
@@ -192,9 +193,7 @@ class DualEncoderDecoderBuilder(ModelBuilder):
         state = model.decoder.init_states(repeat_encoded, repeat_encoded_lengths, source_encoded_seq_len)
 
         # [batch_size, 1] -> [batch_size, beam_size]
-        target_prev = mx.sym.slice_axis(self.target, axis=-1, begin=0, end=1)
-        target_prev = mx.sym.zeros_like(target_prev)
-        target_prev = mx.sym.repeat(target_prev, repeats=beam_size, axis=-1)
+        target_prev = mx.sym.zeros(shape=(self.config.batch_size, beam_size))
 
         target_row_all = []
         target_col_all = []
@@ -420,7 +419,7 @@ class DualEncoderDecoderBuilder(ModelBuilder):
                 prefix=self.config.lm_prefix, epoch=self.config.lm_epoch, pad=C.PAD_ID,
                 devid=self.config.lm_device_ids)
         lm_logits = mx.sym.BlockGrad(lm_logits)
-        lm_pred = mx.sym.sum(lm_logits, axis=-1)
+        lm_score = mx.sym.sum(lm_logits, axis=-1)
 
         # STEP 3. BA model    
         # [batch_size, source_seq_len]
@@ -441,12 +440,15 @@ class DualEncoderDecoderBuilder(ModelBuilder):
         backward_logits = mx.sym.pick(backward_logits, label)
         backward_logits = (1-ignore)*backward_logits + ignore
         backward_logits = -mx.sym.log(backward_logits+1e-8)
-        backward_pred = mx.sym.sum(backward_logits, axis=-1)
+        backward_score = mx.sym.sum(backward_logits, axis=-1)
 
         # [batch_size*beam_size]
         alpha = self.config.alpha
-        loss = (alpha*lm_pred + (1-alpha)*backward_pred) * path_prob 
-        #loss = (alpha*lm_pred + (1-alpha)*backward_pred) / self.config.beam_size
-        loss = mx.sym.sum(loss)
+        #loss = (alpha*lm_score + (1-alpha)*backward_score) * path_prob 
+        #loss = (alpha*lm_score + (1-alpha)*backward_score) / self.config.beam_size
+        #loss = mx.sym.sum(loss)
 
-        return [mx.sym.make_loss(loss), mx.sym.make_loss(lm_pred), mx.sym.make_loss(backward_pred)]
+        loss = mx.sym.Custom(lm_score=lm_score, path_prob=path_prob, backward_score=backward_score, 
+                 op_type='dual_output', alpha=self.config.alpha)
+        return [loss]
+        #return [mx.sym.make_loss(loss), mx.sym.make_loss(lm_score), mx.sym.make_loss(backward_score)]

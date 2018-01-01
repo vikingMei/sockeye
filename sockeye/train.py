@@ -612,7 +612,7 @@ def create_model_config(args: argparse.Namespace,
                                   label_smoothing=args.label_smoothing)
 
     config_dual = dual.DualConfig(args.lm_prefix, args.lm_epoch, args.lm_device_ids,
-            args.beam_size, args.batch_size, args.dual_alpha,
+            args.beam_size, args.batch_size, float(args.dual_alpha),
             vocab_source_size, vocab_target_size,
             args.forward_param, args.backward_param)
 
@@ -672,7 +672,7 @@ def create_training_model(model_config: model.ModelConfig,
     if args.forward_param and args.backward_param:
         logger.info('Training will initialize from dual parameters from [%s] and [%s]', args.forward_param, args.backward_param)
         params = utils.load_dual_param_from_file(args.forward_param, args.backward_param)
-        training_model.module.params = params
+        training_model.params = params
     elif args.params:
         logger.info("Training will initialize from parameters loaded from '%s'", args.params)
         training_model.load_params_from_file(args.params)

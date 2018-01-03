@@ -1054,6 +1054,8 @@ def add_dual_learning_args(params):
                                 help='file to load forward parameters')
     dual_params.add_argument('--backward-param', type=str, 
                                 help='file to load backward parameters')
+    dual_params.add_argument('--forward-gradient-scale', type=float, 
+                                help="scale to forward's gradient")
 
 
 def add_init_embedding_args(params):

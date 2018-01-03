@@ -8,6 +8,7 @@ class DualConfig(Config):
     def __init__(self, lm_prefix:str, lm_epoch:int, lm_device_ids: int, 
             beam_size:int, batch_size:int, 
             alpha:float,
+            forward_gradient_scale:float,
             vocab_source_size:int, vocab_target_size:int,
             forward_param:str, backward_param:str):
         super().__init__()
@@ -20,6 +21,7 @@ class DualConfig(Config):
         self.batch_size = batch_size
 
         self.alpha = alpha
+        self.forward_gradient_scale = forward_gradient_scale
 
         self.vocab_source_size = vocab_source_size
         self.vocab_target_size = vocab_target_size

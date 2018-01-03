@@ -613,6 +613,7 @@ def create_model_config(args: argparse.Namespace,
 
     config_dual = dual.DualConfig(args.lm_prefix, args.lm_epoch, args.lm_device_ids,
             args.beam_size, args.batch_size, float(args.dual_alpha),
+            float(args.forward_gradient_scale),
             vocab_source_size, vocab_target_size,
             args.forward_param, args.backward_param)
 

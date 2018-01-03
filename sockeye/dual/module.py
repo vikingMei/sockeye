@@ -449,6 +449,6 @@ class DualEncoderDecoderBuilder(ModelBuilder):
         #loss = mx.sym.sum(loss)
 
         loss = mx.sym.Custom(lm_score=lm_score, path_prob=path_prob, backward_score=backward_score, 
-                 op_type='dual_output', alpha=self.config.alpha)
+                 op_type='dual_output', alpha=self.config.alpha, scale=self.config.forward_gradient_scale)
         return [loss]
         #return [mx.sym.make_loss(loss), mx.sym.make_loss(lm_score), mx.sym.make_loss(backward_score)]

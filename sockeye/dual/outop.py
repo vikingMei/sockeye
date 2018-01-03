@@ -20,12 +20,13 @@ class DualOutConfig(object):
 
 @mx.operator.register("dual_output")
 class DualOutProp(mx.operator.CustomOpProp):
-    def __init__(self, alpha):
+    def __init__(self, alpha, scale):
         super(DualOutProp, self).__init__(need_top_grad=False)
         self.alpha = alpha
+        self.scale = scale
 
     def create_operator(self, ctx, shapes, dtypes):
-        return DualOut(self.alpha)
+        return DualOut(self.alpha, self.scale)
 
     def list_arguments(self):
         """
@@ -55,12 +56,13 @@ class DualOutProp(mx.operator.CustomOpProp):
 
 
 class DualOut(mx.operator.CustomOp):
-    def __init__(self, alpha) -> None:
+    def __init__(self, alpha, scale) -> None:
         '''
         load ngram module from file 
         '''
         super(DualOut, self).__init__()
         self.alpha = float(alpha)
+        self.scale = float(scale)
 
 
     def forward(self, is_train, req, in_data, out_data, aux):
@@ -82,5 +84,5 @@ class DualOut(mx.operator.CustomOp):
 
         zero = mx.nd.zeros_like(lm_score)
         self.assign(in_grad[0], req[0], zero) 
-        self.assign(in_grad[1], req[1], 0.005*(self.alpha*lm_score + (1-self.alpha)*backward_score))
+        self.assign(in_grad[1], req[1], self.scale*(self.alpha*lm_score + (1-self.alpha)*backward_score))
         self.assign(in_grad[2], req[2], (1-self.alpha)*path_prob)

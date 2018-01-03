@@ -213,6 +213,7 @@ class Accuracy(mx.metric.EvalMetric):
             self.num_inst += n
 
 
+
 class OnlineMeanAndVariance:
     def __init__(self) -> None:
         self._count = 0
@@ -221,10 +222,12 @@ class OnlineMeanAndVariance:
 
     def update(self, value: Union[float, int]) -> None:
         self._count += 1
-        delta = value - self._mean
-        self._mean += delta / self._count
-        delta2 = value - self._mean
-        self._M2 += delta * delta2
+        self._mean += value
+        self._M2 += value*value
+        #delta = value - self._mean
+        #self._mean += delta / self._count
+        #delta2 = value - self._mean
+        #self._M2 += delta * delta2
 
     @property
     def count(self) -> int:
@@ -232,14 +235,16 @@ class OnlineMeanAndVariance:
 
     @property
     def mean(self) -> float:
-        return self._mean
+        return self._mean/self._count
+        #return self._mean
 
     @property
     def variance(self) -> float:
         if self._count < 2:
             return float('nan')
         else:
-            return self._M2 / self._count
+            return self._M2/self.count - self.mean*self.mean
+            #return self._M2 / self._count
 
 
 def smallest_k(matrix: np.ndarray, k: int,

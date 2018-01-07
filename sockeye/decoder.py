@@ -608,7 +608,8 @@ class RecurrentDecoder(Decoder):
         state, attention_state = self._step(target_embed_prev,
                                             prev_state,
                                             attention_func,
-                                            prev_attention_state)
+                                            prev_attention_state,
+                                            step)
 
         new_states = [source_encoded,
                       attention_state.dynamic_source,

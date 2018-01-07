@@ -13,6 +13,8 @@ import mxnet as mx
 
 logger = logging.getLogger(__name__)
 
+g_model = None
+
 
 class LMScoreConfig(object):
     def __init__(self, prefix:str, epoch:int, pad:Optional[int] = 0, devid:Optional[int] = 0) -> None:
@@ -43,17 +45,20 @@ class LMScoreConfig(object):
 
 @mx.operator.register("lm_score")
 class LMScoreProp(mx.operator.CustomOpProp):
+
     def __init__(self, prefix, epoch, pad = 0, devid=0):
         super(LMScoreProp, self).__init__(need_top_grad=False)
 
         config = LMScoreConfig(prefix=prefix, epoch=epoch, pad=pad, devid=devid)
         self.config = config
 
-        logger.info('load launguage model from [%s-%04d.params], run on device: [%d]', prefix, int(epoch), int(devid))
-
         # load module
-        self.model = mx.module.Module.load(config.prefix, config.epoch, 
+        global g_model
+        if not g_model:
+            logger.info('load launguage model from [%s-%04d.params], run on device: [%d]', prefix, int(epoch), int(devid))
+            g_model = mx.module.Module.load(config.prefix, config.epoch, 
                 label_names=[config.label_name], data_names=[config.data_name], context=config.context)
+        self.model = g_model
 
     def create_operator(self, ctx, shapes, dtypes):
         return LMScore(self.model, self.config)

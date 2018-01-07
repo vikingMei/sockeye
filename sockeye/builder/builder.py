@@ -37,7 +37,7 @@ class ModelBuilder():
         self.label_names = [x[0] for x in train_iter.provide_label]
 
         self.default_bucket_key=train_iter.default_bucket_key
-        self.max_bucket_key = train_iter.buckets[0]
+        self.max_bucket_key = train_iter.buckets[-1]
 
 
     def sym_gem_predict(self, seq_lens, prefix=""):
@@ -70,8 +70,14 @@ class ModelBuilder():
                                           default_bucket_key=self.default_bucket_key,
                                           context=self.context)
         else:
+            from ..dual import DualConfig
+            if isinstance(self.config, DualConfig):
+                config = self.config_all 
+            else:
+                config = self.config 
+
             self.logger.info("No bucketing. Unrolled to (%d,%d)",
-                        self.config.max_seq_len_source, self.config.max_seq_len_target)
+                        config.max_seq_len_source, config.max_seq_len_target)
             symbol, _, __ = sym_gen(self.max_bucket_key)
 
             return mx.mod.Module(symbol=symbol,

@@ -198,7 +198,7 @@ class OutputLayer:
                                          weight=self.w,
                                          bias=self.b,
                                          flatten=False,
-                                         name=C.LOGITS_NAME)
+                                         name='%s%s' % (self.prefix,C.LOGITS_NAME))
 
         # Equivalent NDArray implementation (requires passed weights/biases)
         assert isinstance(hidden, mx.nd.NDArray)

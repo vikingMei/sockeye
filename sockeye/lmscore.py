@@ -77,6 +77,12 @@ class LMScoreProp(mx.operator.CustomOpProp):
     def infer_type(self, in_type):
         return in_type, [in_type[0]], []
 
+    def declare_backward_dependency(self, out_grad, in_data, out_data):
+        '''
+        don't have to compute backward gradients
+        '''
+        return []
+
 
 
 class LMScore(mx.operator.CustomOp):
@@ -112,8 +118,12 @@ class LMScore(mx.operator.CustomOp):
 
         pred = self.model.get_outputs()[-1]
         pred = pred.reshape(data.shape)
+
+        flag = (label==self.config.pad).as_in_context(pred.context)
+        pred = pred*(1-flag)
+
         self.assign(out_data[0], req[0], pred)
 
 
     def backward(self, req, out_grad, in_data, out_data, in_grad, aux):
-        self.assign(in_grad[0], req[0], out_data[0])
+        return

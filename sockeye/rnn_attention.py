@@ -700,13 +700,14 @@ def mask_attention_scores(logits: mx.sym.Symbol,
     :return: Masked logits: (batch_size, seq_len, 1).
     """
     # TODO: Masking with 0-1 mask, to avoid the multiplication
-    logits = mx.sym.swapaxes(data=logits, dim1=0, dim2=1)
+    logits = mx.sym.swapaxes(data=logits, dim1=0, dim2=1, name="dual_att_make_score_swap")
     logits = mx.sym.SequenceMask(data=logits,
                                  use_sequence_length=True,
                                  sequence_length=length,
-                                 value=C.LARGE_NEGATIVE_VALUE)
+                                 value=C.LARGE_NEGATIVE_VALUE,
+                                 name="dual_att_make_score_squencemask")
     # (batch_size, seq_len, 1)
-    return mx.sym.swapaxes(data=logits, dim1=0, dim2=1)
+    return mx.sym.swapaxes(data=logits, dim1=0, dim2=1, name='dual_att_make_score_swapback')
 
 
 def get_context_and_attention_probs(values: mx.sym.Symbol,
@@ -725,13 +726,13 @@ def get_context_and_attention_probs(values: mx.sym.Symbol,
     logits = mask_attention_scores(logits, length)
 
     # (batch_size, seq_len, 1)
-    probs = mx.sym.softmax(logits, axis=1, name='attention_softmax')
+    probs = mx.sym.softmax(logits, axis=1, name='dual_attention_softmax')
 
     # batch_dot: (batch, M, K) X (batch, K, N) –> (batch, M, N).
     # (batch_size, seq_len, num_hidden) X (batch_size, seq_len, 1) -> (batch_size, num_hidden, 1)
-    context = mx.sym.batch_dot(lhs=values, rhs=probs, transpose_a=True)
+    context = mx.sym.batch_dot(lhs=values, rhs=probs, transpose_a=True, name="dual_att_batch_dot")
     # (batch_size, encoder_num_hidden, 1)-> (batch_size, encoder_num_hidden)
-    context = mx.sym.reshape(data=context, shape=(0, 0))
-    probs = mx.sym.reshape(data=probs, shape=(0, 0))
+    context = mx.sym.reshape(data=context, shape=(0, 0),name="dual_att_context_reshape")
+    probs = mx.sym.reshape(data=probs, shape=(0, 0), name="dual_att_prob_reshape")
 
     return context, probs

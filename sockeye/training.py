@@ -229,7 +229,7 @@ class TrainingModel(model.SockeyeModel):
             monitor = mx.monitor.Monitor(interval=C.MEASURE_SPEED_EVERY,
                                          stat_func=C.MONITOR_STAT_FUNCS.get(mxmonitor_stat_func),
                                          pattern=mxmonitor_pattern,
-                                         sort=True)
+                                         sort=False)
             self.module.install_monitor(monitor)
             logger.info("Installed MXNet monitor; pattern='%s'; statistics_func='%s'",
                         mxmonitor_pattern, mxmonitor_stat_func)
@@ -349,6 +349,7 @@ class TrainingModel(model.SockeyeModel):
         next_data_batch = train_iter.next()
 
         while True:
+            metric_train.reset()
             batchStart = time.time()
             if not train_iter.iter_next():
                 train_state.epoch += 1
@@ -361,12 +362,20 @@ class TrainingModel(model.SockeyeModel):
 
             # process batch
             batch = next_data_batch
-
             #mx.profiler.profiler_set_config(mode='all', filename='profile_output.json')
             #mx.profiler.profiler_set_state('run')
 
             if mxmonitor is not None:
                 mxmonitor.tic()
+
+            #tmpdata = batch.data[0].asnumpy()
+            #tmpdata.tofile('./exp/gradients/source', sep=",")
+
+            #tmpdata = batch.data[1].asnumpy()
+            #tmpdata.tofile('./exp/gradients/target', sep=",")
+
+            #tmpdata = batch.label[0].asnumpy()
+            #tmpdata.tofile('./exp/gradients/label', sep=",")
 
             # Forward-backward to get outputs, gradients
             self.module.forward_backward(batch)
@@ -401,6 +410,7 @@ class TrainingModel(model.SockeyeModel):
             self.module.update()
 
             if mxmonitor is not None:
+                idx = 0
                 results = mxmonitor.toc()
                 if results:
                     for _, k, v in results:
@@ -543,7 +553,7 @@ class TrainingModel(model.SockeyeModel):
         """
         params_fname = os.path.join(output_folder, C.PARAMS_NAME % checkpoint)
         self.load_params_from_file(params_fname)  # sets self.params
-        self.module.params = parset_params(arg_params=self.params, aux_params={})
+        self.module.set_params(arg_params=self.params, aux_params={})
 
     def _evaluate(self, training_state, val_iter, val_metric):
         """

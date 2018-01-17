@@ -45,7 +45,7 @@ class DualMetric(EvalMetric):
         the reward have been compute in loss comute 
         """
         target_label = labels[0]
-        batch_size = target_label.shape[0] 
+        batch_size = target_label.size
 
         for i in range(0,self.num_metric):
             self.sum_metric[i] += preds[i].sum().asscalar()

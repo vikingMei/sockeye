@@ -29,7 +29,7 @@ class BeamSearchProp(mx.operator.CustomOpProp):
         return ['rows', 'cols', 'probs']
 
     def list_outputs(self):
-        return ['beam_search_path', 'beam_searcm_path_prob']
+        return ['path', 'path_prob']
 
     def infer_shape(self, in_shape):
         data_shape = in_shape[0]
@@ -47,6 +47,7 @@ class BeamSearch(mx.operator.CustomOp):
         # TODO: compute from vocab
         self.eos_id = 3
         self.pad_id = 0
+        self.idx = 0
 
 
     def forward(self, is_train, req, in_data, out_data, aux):
@@ -105,15 +106,20 @@ class BeamSearch(mx.operator.CustomOp):
         final_prob[0,:,:] = preprob
         self.newrow[0,:,:] = prerow
 
-        # update eos
+        # update eos(as dual_forward is input of dual_backward, 
+        # so we don't need to keep eos, just replace it with padding)
         for i in range(0, batch_size):
             for j in range(0, beam_size):
-                for t in range(0, seqlen-1): 
+                for t in range(0, seqlen): 
                     if self.eos_id==final_path[t, i, j]:
-                        final_path[t+1:, i, j] = self.pad_id
-                        final_prob[t+1:, i, j] = 0.0
+                        final_path[t:, i, j] = self.pad_id
+                        final_prob[t:, i, j] = 0.0
                         break
 
+        #data = final_path.asnumpy()
+        #data = data.swapaxes(0,2)
+        #data.tofile('./exp/gradients/beam_path_%04d'%self.idx, sep=" ")
+        #self.idx += 1
         self.assign(out_data[0], req[0], final_path)
         self.assign(out_data[1], req[1], final_prob)
 

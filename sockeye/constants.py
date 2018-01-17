@@ -169,16 +169,18 @@ LOGITS_NAME = "logits"
 SOFTMAX_NAME = "softmax"
 SOFTMAX_OUTPUT_NAME = SOFTMAX_NAME + "_output"
 
-MEASURE_SPEED_EVERY = 10  # measure speed and metrics every X batches
+MEASURE_SPEED_EVERY = 1  # measure speed and metrics every X batches
 
 # Monitor constants
 STAT_FUNC_DEFAULT = "mx_default"  # default MXNet monitor stat func: mx.nd.norm(x)/mx.nd.sqrt(x.size)
 STAT_FUNC_MAX = 'max'
 STAT_FUNC_MIN = 'min'
 STAT_FUNC_MEAN = 'mean'
+STAT_FUNC_MEAN_VAR = 'mean-var'
 MONITOR_STAT_FUNCS = {STAT_FUNC_DEFAULT: None,
                       STAT_FUNC_MAX: lambda x: mx.nd.max(x),
-                      STAT_FUNC_MEAN: lambda x: mx.nd.mean(x)}
+                      STAT_FUNC_MEAN: lambda x: mx.nd.mean(x),
+                      STAT_FUNC_MEAN_VAR: lambda x: [x.min(), x.max(), x.mean(), (x*x).mean() - x.mean()*x.mean()]}
 
 # Inference constants
 DEFAULT_BEAM_SIZE = 5

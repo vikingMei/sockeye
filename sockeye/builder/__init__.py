@@ -2,7 +2,7 @@
 # coding: utf-8
 #
 # Usage: 
-# Author: wxm71(auimoviki@gmail.com)
+# Author: viking(auimoviki@gmail.com)
 
 from .builder import ModelBuilder
 from .encoder_decoder import  EncoderDecoderBuilder 

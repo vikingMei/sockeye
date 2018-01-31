@@ -2,7 +2,7 @@
 # coding: utf-8
 #
 # Usage: 
-# Author: wxm71(auimoviki@gmail.com)
+# Author: viking(auimoviki@gmail.com)
 
 from .. import loss
 from .. import model

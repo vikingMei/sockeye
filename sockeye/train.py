@@ -611,11 +611,14 @@ def create_model_config(args: argparse.Namespace,
                                   normalization_type=args.loss_normalization_type,
                                   label_smoothing=args.label_smoothing)
 
-    config_dual = dual.DualConfig(args.lm_prefix, args.lm_epoch, args.lm_device_ids,
-            args.beam_size, args.batch_size, float(args.dual_alpha),
-            float(args.forward_gradient_scale),
-            vocab_source_size, vocab_target_size,
-            args.forward_param, args.backward_param)
+    if args.is_dual:
+        config_dual = dual.DualConfig(args.lm_prefix, args.lm_epoch, args.lm_device_ids,
+                args.beam_size, args.batch_size, float(args.dual_alpha),
+                float(args.forward_gradient_scale),
+                vocab_source_size, vocab_target_size,
+                args.forward_param, args.backward_param)
+    else:
+        config_dual = None
 
     model_config = model.ModelConfig(config_data=config_data,
                                      max_seq_len_source=max_seq_len_source,

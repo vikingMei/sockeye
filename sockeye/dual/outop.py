@@ -2,7 +2,7 @@
 # coding: utf-8
 #
 # Usage: 
-# Author: wxm71(auimoviki@gmail.com)
+# Author: viking(auimoviki@gmail.com)
 
 import pdb 
 import logging
@@ -32,15 +32,15 @@ class DualOutProp(mx.operator.CustomOpProp):
         return DualOut(self.alpha, self.scale, self.beam_size)
 
     def list_arguments(self):
-        return ['lm_score', 'beam_path', 'path_logits', 'backward_pred', 'label']
+        return ['lm_score', 'beam_path', 'path_logits', 'backward_pred', 'label', 'place_hoder']
 
     def list_outputs(self):
-        return ['output', 'lm_score', 'backward_score', 'backward_prob']
+        return ['output', 'lm_score', 'backward_score', 'back_prob']
 
     def infer_shape(self, in_shape):
         lm_shape = in_shape[0]
-        back_shape = in_shape[3]
         out_shape = [lm_shape[0]]
+        back_shape = in_shape[3]
         return in_shape, [out_shape, out_shape, out_shape, back_shape], []
 
     def infer_type(self, in_type):
@@ -52,7 +52,7 @@ class DualOutProp(mx.operator.CustomOpProp):
         deps.append(in_data[1])     # beam_path
         deps.append(in_data[4])     # label
         deps.append(out_data[0])    # loss
-        deps.append(out_data[3])    # back_prob
+        deps.append(out_data[3])    # loss
         return deps
 
 
@@ -67,6 +67,72 @@ class DualOut(mx.operator.CustomOp):
         self.scale = scale
         self.uni_prob = 1.0/beam_size
         self.beam_size = beam_size
+        self.idx = 0
+        self.eos_id = 3
+
+
+    def debug_dump(self, beam_path, path_logits, lm_score, back_prob, back_score):
+        '''
+        beam_path: [batch_size*beam_size, target_seq_len]
+        lm_score: [batch_size*beam_size]
+        '''
+        # [batch_size*beam_size, target_seq_len]
+        beam_path = beam_path.astype('int32').asnumpy()
+        path_logits = path_logits.asnumpy()
+        lm_score = lm_score.asnumpy()
+        back_score = back_score.asnumpy()
+
+        valid = beam_path!=C.PAD_ID
+        path_logits = path_logits
+        path_prob = path_logits.sum(axis=-1)
+        validlen = valid.sum(axis=-1)
+        path_prob /= validlen
+
+        shape = beam_path.shape
+        fname = './exp/gradients/beam_path_%04d'%self.idx
+        with open(fname,'w') as fid:
+            for i in range(0, shape[0]):
+                fid.write('%12.6f\t'%-lm_score[i])
+                fid.write('%12.6f\t'%path_prob[i])
+                buf = [str(x) for x in beam_path[i,:]]
+                fid.write(' '.join(buf))
+                fid.write('\n')
+        fid.close()
+
+        # save back result
+        # [batch_size*beam_size, source_seq_len, source_vocab_size]
+        # -> [batch_size*beam_size, source_seq_len, 1]
+        # -> [batch_size*beam_size, source_seq_len]
+        topkval,topkpos = back_prob.topk(k=1, ret_typ='both', axis=-1)
+        topkpos = topkpos.reshape(shape=(0,-1))
+        topkval = topkval.reshape(shape=(0,-1))
+        topkval = topkval.log() 
+
+        shape = topkpos.shape
+        for i in range(0, shape[0]):
+            for j in range(0, shape[1]-1):
+                if self.eos_id==topkpos[i,j]:
+                    topkpos[i,j+1:] = C.PAD_ID
+                    break
+
+        valid = topkpos!=C.PAD_ID
+        topkval *= valid
+        topkval = topkval.sum(axis=-1)
+
+        validlen = valid.sum(axis=-1) 
+        topkval /= validlen
+        topkval = topkval.asnumpy()
+
+        topkpos = topkpos.asnumpy().astype('int32')
+        with open('./exp/gradients/back_path_%04d' % self.idx, 'w') as fid:
+            for i in range(0, shape[0]):
+                fid.write('%12.6f\t' % -back_score[i])
+                fid.write('%12.6f\t' % topkval[i])
+                buf = [str(x) for x in topkpos[i,:]]
+                fid.write(' '.join(buf))
+                fid.write('\n')
+        self.idx += 1
+
 
 
     def forward(self, is_train, req, in_data, out_data, aux):
@@ -82,11 +148,11 @@ class DualOut(mx.operator.CustomOp):
         # lab_AB    [batch_size*beam_size, target_seq_len]
         beam_path = in_data[1].astype('int32')
 
-        # P(s_mid|s, AB)    [batch_size*beam_size, target_seq_len]
+        # P(s_mid|s, AB)        [batch_size*beam_size, target_seq_len]
         # probability for each path unit
         path_logits = in_data[2]
 
-        # P(s|s_mid, BA)    [batch_size*beam_size, source_seq_len, source_vocab_size]
+        # logP(s|s_mid, BA)     [batch_size*beam_size, source_seq_len, source_vocab_size]
         back_pred = in_data[3]
 
         # [batch_size*beam_size, source_seq_len]
@@ -113,11 +179,14 @@ class DualOut(mx.operator.CustomOp):
         back_logits = -mx.nd.log(back_tgt+1e-8)
         back_logits = valid*back_logits
         back_score  = back_logits.sum(axis=-1)
-        valid = label!=C.PAD_ID
-        back_score /= valid.sum(axis=-1).astype('float32')
+
+        # add 1 to avoid 0 length
+        validlen = valid.sum(axis=-1)+1
+        back_score /= validlen.astype('float32')
+
+        #self.debug_dump(beam_path, path_logits, lm_score, back_prob, back_score)
 
         # for simplify, just remove the path_prob
-        #loss = (self.alpha*lm_score + (1-self.alpha)*back_score)*allpath_prob
         loss = (self.alpha*lm_score + (1-self.alpha)*back_score)
 
         self.assign(out_data[0], req[0], loss)  
@@ -136,6 +205,7 @@ class DualOut(mx.operator.CustomOp):
         # P(s|s_mid, BA)    [batch_size*beam_size, source_seq_len, source_vocab_size]
         back_prob = out_data[3]
 
+        # [batch_size*beam_size, source_seq_len]
         label = in_data[4] 
 
         # dloss/logP(s_mid|s,AB) 
@@ -168,5 +238,4 @@ class DualOut(mx.operator.CustomOp):
                 grad[i,j,tgt] = back_prob[i,j,tgt]-1
         grad *= (1-self.alpha)
         grad *= self.uni_prob
-        grad *= 0
         self.assign(in_grad[3], req[3], mx.nd.array(grad, ctx=ctx))

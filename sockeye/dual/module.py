@@ -2,7 +2,7 @@
 # coding: utf-8
 #
 # Usage: 
-# Author: wxm71(auimoviki@gmail.com)
+# Author: viking(auimoviki@gmail.com)
 
 from .. import loss
 from .. import model
@@ -346,6 +346,7 @@ class DualEncoderDecoderBuilder(ModelBuilder):
 
         path_logits = mx.sym.reshape(path_logits, shape=(0, -3))
         path_logits = mx.sym.swapaxes(path_logits, dim1=0, dim2=1)
+        path_logits = mx.sym.BlockGrad(path_logits)
 
         # STEP 1. P(s_mid|s)
         # [target_seq_len, batch_size, beam_size] 
@@ -375,22 +376,20 @@ class DualEncoderDecoderBuilder(ModelBuilder):
         label = mx.sym.repeat(label, repeats=self.config.beam_size, axis=1)
         label = mx.sym.reshape(label, shape=(-3,0))
         label = mx.sym.BlockGrad(label)
-        #ignore = (C.PAD_ID==label)
+        #valid = (C.PAD_ID!=label)
 
+        # compute here instead of in loss node, not elegant
+        #
         # [batch_size*beam_size, source_seq_len, source_vocab_size]
         # -> [batch_size*beam_size, source_seq_len]
         # -> [batch_size*beam_size, source_seq_len]
-        # -> [batch_size*beam_size, source_seq_len]
-        # -> [batch_size*beam_size,]
         #backward_logits = mx.sym.softmax(backward_pred, name="dual_b_pred_softmax")
         #backward_logits = mx.sym.pick(backward_logits, label, name="dual_b_pred_label_pick")
-        #backward_logits = (1-ignore)*backward_logits + ignore
         #backward_logits = -mx.sym.log(backward_logits+1e-8, name="dual_b_pred_logits")
-        #backward_score = mx.sym.sum(backward_logits, axis=-1, name="dual_b_pred_score")
 
         # [batch_size*beam_size]
         loss = mx.sym.Custom(lm_score=lm_score, beam_path=beam_path, path_logits=path_logits, 
-                backward_pred=backward_pred, label=label,
+                backward_pred=backward_pred, label=label, place_hoder=self.labels,
                 op_type='dual_output', alpha=self.config.alpha, scale=self.config.forward_gradient_scale, 
                 beam_size=self.config.beam_size, name='dual_output')
         return [loss]

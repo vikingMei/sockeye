@@ -411,7 +411,7 @@ class RawParallelDatasetLoader:
                        for (source_len, target_len), num_samples in zip(self.buckets, num_samples_per_bucket)]
         data_target = [np.full((num_samples, target_len), self.pad_id, dtype=self.dtype)
                        for (source_len, target_len), num_samples in zip(self.buckets, num_samples_per_bucket)]
-        data_label = [np.full((num_samples, source_len), self.pad_id, dtype=self.dtype)
+        data_label = [np.full((num_samples, target_len), self.pad_id, dtype=self.dtype)
                       for (source_len, target_len), num_samples in zip(self.buckets, num_samples_per_bucket)]
 
         bucket_sample_index = [0 for buck in self.buckets]
@@ -442,7 +442,7 @@ class RawParallelDatasetLoader:
             # with the EOS symbol here sentence-wise and not per-batch due to variable sequence length within a batch.
             # Once MXNet allows item assignments given a list of indices (probably MXNet 1.0): e.g a[[0,1,5,2]] = x,
             # we can try again to compute the label sequence on the fly in next().
-            data_label[buck_index][sample_index, :source_len] = source[1:] + [self.eos_id]
+            data_label[buck_index][sample_index, :target_len] = target[1:] + [self.eos_id]
 
             bucket_sample_index[buck_index] += 1
 
@@ -1235,7 +1235,7 @@ class BaseParallelSampleIter(mx.io.DataIter, ABC):
                            layout=C.BATCH_MAJOR)]
         self.provide_label = [
             mx.io.DataDesc(name=self.label_name,
-                           shape=(self.bucket_batch_sizes[-1].batch_size, self.default_bucket_key[0]),
+                           shape=(self.bucket_batch_sizes[-1].batch_size, self.default_bucket_key[1]),
                            layout=C.BATCH_MAJOR)]
 
         self.data_names = [self.source_data_name, self.target_data_name]

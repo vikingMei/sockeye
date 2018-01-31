@@ -2,7 +2,7 @@
 # coding: utf-8
 #
 # Usage: 
-# Author: wxm71(auimoviki@gmail.com)
+# Author: viking(auimoviki@gmail.com)
 
 import pdb
 import logging
@@ -44,9 +44,7 @@ class DualMetric(EvalMetric):
         """
         the reward have been compute in loss comute 
         """
-        target_label = labels[0]
-        batch_size = target_label.size
-
+        batch_size = preds[0].size
         for i in range(0,self.num_metric):
             self.sum_metric[i] += preds[i].sum().asscalar()
         self.num_inst += batch_size

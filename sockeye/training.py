@@ -348,6 +348,7 @@ class TrainingModel(model.SockeyeModel):
 
         next_data_batch = train_iter.next()
 
+        idx = 0
         while True:
             metric_train.reset()
             batchStart = time.time()
@@ -369,13 +370,15 @@ class TrainingModel(model.SockeyeModel):
                 mxmonitor.tic()
 
             #tmpdata = batch.data[0].asnumpy()
-            #tmpdata.tofile('./exp/gradients/source', sep=",")
+            #tmpdata.tofile('./exp/gradients/source-%04d'%idx, sep=",")
 
             #tmpdata = batch.data[1].asnumpy()
-            #tmpdata.tofile('./exp/gradients/target', sep=",")
+            #tmpdata.tofile('./exp/gradients/target-%04d'%idx, sep=",")
 
             #tmpdata = batch.label[0].asnumpy()
-            #tmpdata.tofile('./exp/gradients/label', sep=",")
+            #tmpdata.tofile('./exp/gradients/label-%04d'%idx, sep=",")
+
+            #idx += 1
 
             # Forward-backward to get outputs, gradients
             self.module.forward_backward(batch)
@@ -410,7 +413,6 @@ class TrainingModel(model.SockeyeModel):
             self.module.update()
 
             if mxmonitor is not None:
-                idx = 0
                 results = mxmonitor.toc()
                 if results:
                     for _, k, v in results:

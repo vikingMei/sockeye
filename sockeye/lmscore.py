@@ -100,15 +100,19 @@ class LMScore(mx.operator.CustomOp):
         '''
         compute ppl from input
         '''
+        # [batch_size*beam_size, target_seq_len]
         data = in_data[0]
 
         label = mx.nd.full(data.shape, self.config.pad)
         seqlen = data.shape[1]
         label[:,0:seqlen-1]  = data[:,1:]
 
+        data = data.swapaxes(dim1=1, dim2=0)
+        label = label.swapaxes(dim1=1, dim2=0)
+
         # build data batch
-        provide_data = [mx.io.DataDesc(name=self.config.data_name, shape=(data.shape), layout=C.BATCH_MAJOR)]
-        provide_label = [mx.io.DataDesc(name=self.config.label_name, shape=(label.shape), layout=C.BATCH_MAJOR)]
+        provide_data = [mx.io.DataDesc(name=self.config.data_name, shape=(data.shape))]
+        provide_label = [mx.io.DataDesc(name=self.config.label_name, shape=(label.shape))]
 
         batch = mx.io.DataBatch([data], [label], pad=self.config.pad, provide_data=provide_data)
 
@@ -116,12 +120,14 @@ class LMScore(mx.operator.CustomOp):
         self.model.bind(data_shapes=provide_data, label_shapes=provide_label, for_training=False, force_rebind=True)
         self.model.forward(batch)
 
+        # [batch_size*beam_size, target_seq_len]
         pred = self.model.get_outputs()[-1]
         pred = pred.reshape(data.shape)
 
         flag = (label==self.config.pad).as_in_context(pred.context)
         pred = pred*(1-flag)
 
+        pred = pred.swapaxes(dim1=0,dim2=1)
         self.assign(out_data[0], req[0], pred)
 
 

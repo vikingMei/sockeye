@@ -22,6 +22,7 @@ from typing import Callable, Optional
 from sockeye.lr_scheduler import LearningRateSchedulerFixedStep
 from . import constants as C
 from . import data_io
+from . import dual
 
 
 def regular_file() -> Callable:
